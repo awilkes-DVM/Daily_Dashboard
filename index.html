@@ -529,8 +529,7 @@ function parseDateCell(txt){
   return isNaN(d.getTime()) ? null : d;
 }
 async function fetchFarsideHTML(){
-  const base = FARSIDE_WORKER_BASE.endsWith("/") ? FARSIDE_WORKER_BASE : (FARSIDE_WORKER_BASE + "/");
-  const url = `${base}?url=${encodeURIComponent(FARSIDE_BTC_URL)}`;
+  const url = `${FARSIDE_WORKER_BASE}/?url=${encodeURIComponent(FARSIDE_BTC_URL)}`;
   return await fetchText(url);
 }
 function extractFarsideTotals(html){
