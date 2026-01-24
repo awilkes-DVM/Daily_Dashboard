@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BTC/ETH Daily Drivers Dashboard</title>
+  <style>
+    :root{
+      --bg:#0b0f14;
+      --panel:#111824;
+      --panel2:#0f1622;
+      --text:#e7eef9;
+      --muted:#9bb0c7;
+      --green:#2dd4bf;
+      --amber:#fbbf24;
+      --red:#fb7185;
+      --line:#1f2a3a;
+      --chip:#0b1220;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+    body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); }
+    .wrap{ max-width:1200px; margin:0 auto; padding:18px; }
+    h1{ font-size:20px; margin:0 0 6px; }
+    .sub{ color:var(--muted); font-size:13px; margin-bottom:14px; }
+    .row{ display:grid; gap:12px; }
+    .row.cols5{ grid-template-columns: repeat(5, minmax(0,1fr)); }
+    .row.cols2{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .row.cols4{ grid-template-columns: repeat(4, minmax(0,1fr)); }
+    @media (max-width: 980px){
+      .row.cols5{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .row.cols4{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .row.cols2{ grid-template-columns: 1fr; }
+    }
+    .card{
+      background:linear-gradient(180deg,var(--panel),var(--panel2));
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px 12px 10px;
+      box-shadow: 0 8px 20px rgba(0,0,0,.25);
+    }
+    .metric-label{ font-size:12px; color:var(--muted); }
+    .metric-val{ font-size:20px; margin-top:4px; font-family:var(--mono); }
+    .metric-delta{ font-size:12px; margin-top:3px; color:var(--muted); }
+    .divider{ height:1px; background:var(--line); margin:14px 0; }
+    .section-title{ font-size:14px; color:var(--text); margin:0 0 10px; }
+    .flags{ display:flex; flex-direction:column; gap:8px; }
+    .flag{
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:9px 10px;
+      background: #0b1220;
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+    }
+    .flag .left{ display:flex; flex-direction:column; gap:2px; }
+    .flag .name{ font-size:13px; }
+    .flag .detail{ font-size:12px; color:var(--muted); }
+    .badge{
+      font-size:11px;
+      font-family:var(--mono);
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:var(--chip);
+      white-space:nowrap;
+    }
+    .badge.green{ color:var(--green); border-color: rgba(45,212,191,.35); }
+    .badge.amber{ color:var(--amber); border-color: rgba(251,191,36,.35); }
+    .badge.red{ color:var(--red); border-color: rgba(251,113,133,.35); }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:12px;
+      overflow:hidden;
+      border-radius:12px;
+      border:1px solid var(--line);
+    }
+    th, td{
+      padding:10px 10px;
+      border-bottom:1px solid var(--line);
+      text-align:left;
+      font-family:var(--mono);
+    }
+    th{ color:var(--muted); font-weight:600; background:#0b1220; font-family:var(--sans); }
+    tr:last-child td{ border-bottom:none; }
+    .note{ color:var(--muted); font-size:12px; margin-top:8px; line-height:1.35; }
+    .topbar{
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      margin-bottom:10px;
+    }
+    .righttools{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .btn{
+      cursor:pointer;
+      border:1px solid var(--line);
+      background:#0b1220;
+      color:var(--text);
+      border-radius:10px;
+      padding:8px 10px;
+      font-size:12px;
+    }
+    .btn:hover{ border-color:#2a3a52; }
+    .chip{
+      border:1px solid var(--line);
+      background:#0b1220;
+      border-radius:10px;
+      padding:8px 10px;
+      font-size:12px;
+      color:var(--muted);
+      font-family:var(--mono);
+    }
+    .mono{ font-family:var(--mono); }
+    .small{ font-size:12px; color:var(--muted); }
+    .error{ color: var(--red); }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>BTC/ETH Daily Drivers Dashboard</h1>
+        <div class="sub">Static site (GitHub Pages) • Live fetch from CoinGecko / OKX / DefiLlama / Deribit • R/A/G flags</div>
+      </div>
+      <div class="righttools">
+        <div class="chip" id="lastUpdate">last update: —</div>
+        <button class="btn" id="refreshBtn">Refresh now</button>
+        <button class="btn" id="thresholdBtn">Edit thresholds</button>
+      </div>
+    </div>
+
+    <!-- Market Snapshot -->
+    <div class="row cols5" id="snapshotRow"></div>
+
+    <div class="divider"></div>
+
+    <!-- Flags -->
+    <div class="row cols2">
+      <div class="card">
+        <div class="section-title">Daily Flags (R/A/G)</div>
+        <div class="flags" id="flagsLeft"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Risk / Liquidity Flags</div>
+        <div class="flags" id="flagsRight"></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Spot flows + Leverage -->
+    <div class="row cols2">
+      <div class="card">
+        <div class="section-title">Spot Flows & Institutional Demand</div>
+        <div class="note">
+          ETF flows (Farside) are omitted in pure static mode due to frequent browser CORS blocks.
+          If you want it, use the free Cloudflare Worker proxy snippet in the comments at the bottom.
+        </div>
+        <div class="divider"></div>
+        <div class="small">Spot prices (fallback order): OKX → CoinGecko</div>
+        <div class="row cols2" style="margin-top:10px;">
+          <div class="card" style="background:#0b1220;">
+            <div class="metric-label">BTC Spot (USD)</div>
+            <div class="metric-val" id="spotBTC">$—</div>
+            <div class="metric-delta" id="spotBTCsrc">source: —</div>
+          </div>
+          <div class="card" style="background:#0b1220;">
+            <div class="metric-label">ETH Spot (USD)</div>
+            <div class="metric-val" id="spotETH">$—</div>
+            <div class="metric-delta" id="spotETHsrc">source: —</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Leverage & Positioning (Perps)</div>
+        <div class="small">Perp venue: Binance is not used here; we use OKX public endpoints.</div>
+        <div class="divider"></div>
+        <div id="perpTableWrap"></div>
+        <div class="note">Funding is annualized as: funding_8h × 3 × 365 (rough). OI/MktCap is best-effort from OKX OI fields.</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Vol + Stablecoins -->
+    <div class="row cols2">
+      <div class="card">
+        <div class="section-title">Volatility / Risk Regime</div>
+        <div class="row cols4" id="volRow"></div>
+        <div class="note">Realized vol uses 30D log returns (CoinGecko daily). Implied vol uses Deribit vol index (proxy).</div>
+        <div class="divider"></div>
+        <div class="small mono" id="corrLine">BTC/ETH 180D corr: —</div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Liquidity Fuel (Stablecoins)</div>
+        <div class="row cols4" id="stableRow"></div>
+        <div class="note">Stablecoin supply from DefiLlama. Positive 30D change = liquidity tailwind; negative = headwind.</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Macro strip (optional, may fail due to Yahoo CORS) -->
+    <div class="card">
+      <div class="section-title">Macro Cross-Asset Tape (optional)</div>
+      <div class="small">
+        Many finance data sites block browser CORS. This section is best-effort using Stooq free CSV.
+        If it shows NA, either remove it or add a free proxy (Cloudflare Worker).
+      </div>
+      <div class="divider"></div>
+      <div class="row cols4" id="macroRow"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="small">
+      Troubleshooting: If any box shows NA, it usually means an API rate limit or browser CORS. The core crypto endpoints above are typically fine.
+    </div>
+  </div>
+
+<script>
+/* -----------------------------
+   Thresholds (editable)
+------------------------------ */
+const defaultThresholds = {
+  FUNDING_CROWDED_LONG_ANN: 0.30,
+  FUNDING_CROWDED_SHORT_ANN: -0.30,
+  OI_MKTCAP_WARN: 0.02,
+  OI_MKTCAP_DANGER: 0.05,
+  BASIS_WARN_ANN: 0.20,
+  BASIS_DANGER_ANN: 0.50,
+  RV_GT_IV_WARN: 0.05,
+  STABLES_D30_WARN_USD: -5e9,
+  STABLES_D30_DANGER_USD: -15e9,
+  BTC_ETH_CORR_HIGH: 0.80
+};
+
+function loadThresholds(){
+  try{
+    const raw = localStorage.getItem("thresholds");
+    if(!raw) return {...defaultThresholds};
+    const parsed = JSON.parse(raw);
+    return {...defaultThresholds, ...parsed};
+  }catch(e){
+    return {...defaultThresholds};
+  }
+}
+function saveThresholds(t){ localStorage.setItem("thresholds", JSON.stringify(t)); }
+
+let T = loadThresholds();
+
+/* -----------------------------
+   Formatting helpers
+------------------------------ */
+function fmtUSD(x, decimals=0){
+  if(x === null || x === undefined || Number.isNaN(x)) return "NA";
+  return "$" + Number(x).toLocaleString(undefined, {maximumFractionDigits:decimals});
+}
+function fmtPct(x, decimals=2){
+  if(x === null || x === undefined || Number.isNaN(x)) return "NA";
+  return (100*Number(x)).toFixed(decimals) + "%";
+}
+function fmtNum(x, decimals=2){
+  if(x === null || x === undefined || Number.isNaN(x)) return "NA";
+  return Number(x).toFixed(decimals);
+}
+function nowStr(){
+  const d = new Date();
+  return d.toLocaleString();
+}
+function setLastUpdate(ok=true){
+  const el = document.getElementById("lastUpdate");
+  el.textContent = `last update: ${nowStr()}` + (ok ? "" : " (partial)");
+}
+
+/* -----------------------------
+   DOM builders
+------------------------------ */
+function metricCard(label, value, delta){
+  return `
+    <div class="card">
+      <div class="metric-label">${label}</div>
+      <div class="metric-val">${value}</div>
+      <div class="metric-delta">${delta ?? ""}</div>
+    </div>
+  `;
+}
+
+function flagRow(name, level, detail){
+  const cls = level.toLowerCase();
+  return `
+    <div class="flag">
+      <div class="left">
+        <div class="name">${name}</div>
+        <div class="detail">${detail}</div>
+      </div>
+      <div class="badge ${cls}">${level}</div>
+    </div>
+  `;
+}
+
+function ragFunding(asset, fAnn){
+  if(Number.isNaN(fAnn)) return ["AMBER", "Funding unavailable"];
+  if(fAnn >= T.FUNDING_CROWDED_LONG_ANN) return ["RED", `Crowded long: ${fmtPct(fAnn,1)} ann`];
+  if(fAnn <= T.FUNDING_CROWDED_SHORT_ANN) return ["RED", `Crowded short: ${fmtPct(fAnn,1)} ann`];
+  return ["GREEN", `Funding ${fmtPct(fAnn,1)} ann`];
+}
+function ragOI(asset, oiPct){
+  if(Number.isNaN(oiPct)) return ["AMBER", "OI/MktCap unavailable"];
+  if(oiPct >= T.OI_MKTCAP_DANGER) return ["RED", `High leverage: ${fmtPct(oiPct,2)}`];
+  if(oiPct >= T.OI_MKTCAP_WARN) return ["AMBER", `Elevated: ${fmtPct(oiPct,2)}`];
+  return ["GREEN", `${fmtPct(oiPct,2)}`];
+}
+function ragBasis(asset, bAnn){
+  if(Number.isNaN(bAnn)) return ["AMBER", "Basis unavailable"];
+  if(Math.abs(bAnn) >= T.BASIS_DANGER_ANN) return ["RED", `Extreme basis: ${fmtPct(bAnn,1)} ann`];
+  if(Math.abs(bAnn) >= T.BASIS_WARN_ANN) return ["AMBER", `Elevated basis: ${fmtPct(bAnn,1)} ann`];
+  return ["GREEN", `${fmtPct(bAnn,1)} ann`];
+}
+function ragRVIV(name, rv, iv){
+  if(Number.isNaN(rv) || Number.isNaN(iv)) return ["AMBER", "RV/IV unavailable"];
+  const diff = rv - iv;
+  if(diff >= T.RV_GT_IV_WARN) return ["AMBER", `RV > IV by ${(diff*100).toFixed(1)} vol pts`];
+  return ["GREEN", `RV-IV ${(diff*100).toFixed(1)} vol pts`];
+}
+function ragStables(d30){
+  if(Number.isNaN(d30)) return ["AMBER", "Stable supply unavailable"];
+  if(d30 <= T.STABLES_D30_DANGER_USD) return ["RED", `${(d30/1e9).toFixed(1)}B (liquidity drain)`];
+  if(d30 <= T.STABLES_D30_WARN_USD) return ["AMBER", `${(d30/1e9).toFixed(1)}B (headwind)`];
+  return ["GREEN", `${(d30/1e9).toFixed(1)}B`];
+}
+function ragCorr(corr){
+  if(Number.isNaN(corr)) return ["AMBER", "Correlation unavailable"];
+  if(corr >= T.BTC_ETH_CORR_HIGH) return ["AMBER", `High corr ${corr.toFixed(2)} → less diversification`];
+  return ["GREEN", `${corr.toFixed(2)}`];
+}
+
+/* -----------------------------
+   Fetch helpers
+------------------------------ */
+async function fetchJSON(url){
+  const res = await fetch(url, { method:"GET" });
+  if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+async function fetchText(url){
+  const res = await fetch(url, { method:"GET" });
+  if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.text();
+}
+
+/* -----------------------------
+   Data sources
+------------------------------ */
+async function getCoinGeckoSnapshot(){
+  const priceUrl = `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true&include_7d_change=true&include_market_cap=true`;
+  const globalUrl = `https://api.coingecko.com/api/v3/global`;
+  const [p, g] = await Promise.all([fetchJSON(priceUrl), fetchJSON(globalUrl)]);
+  return {
+    btc: p.bitcoin,
+    eth: p.ethereum,
+    totalMcap: g?.data?.total_market_cap?.usd ?? NaN,
+    totalMcap24h: g?.data?.market_cap_change_percentage_24h_usd ?? NaN
+  };
+}
+
+async function getCoinGeckoDaily(coinId, days){
+  const url = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=${days}&interval=daily`;
+  const js = await fetchJSON(url);
+  const raw = js.prices || [];
+  // Dedup by date
+  const map = new Map();
+  for(const [ts, price] of raw){
+    const d = new Date(ts);
+    const key = d.toISOString().slice(0,10);
+    map.set(key, price);
+  }
+  const dates = Array.from(map.keys()).sort();
+  const prices = dates.map(k => map.get(k));
+  return { dates, prices };
+}
+
+function logReturns(prices){
+  const r = [];
+  for(let i=1;i<prices.length;i++){
+    const p0 = prices[i-1], p1=prices[i];
+    if(!(p0>0 && p1>0)) continue;
+    r.push(Math.log(p1/p0));
+  }
+  return r;
+}
+function rollingStd(arr, window){
+  const out = new Array(arr.length).fill(NaN);
+  for(let i=window-1;i<arr.length;i++){
+    const slice = arr.slice(i-window+1, i+1);
+    const mean = slice.reduce((a,b)=>a+b,0)/slice.length;
+    const varr = slice.reduce((a,b)=>a+(b-mean)*(b-mean),0)/(slice.length-1);
+    out[i] = Math.sqrt(varr);
+  }
+  return out;
+}
+function realizedVolAnn(logRets, window, daysPerYear=365){
+  const sd = rollingStd(logRets, window);
+  return sd.map(x => Number.isNaN(x) ? NaN : x*Math.sqrt(daysPerYear));
+}
+function rollingCorr(x,y,window){
+  const n = Math.min(x.length,y.length);
+  const out = new Array(n).fill(NaN);
+  for(let i=window-1;i<n;i++){
+    const xs = x.slice(i-window+1, i+1);
+    const ys = y.slice(i-window+1, i+1);
+    const mx = xs.reduce((a,b)=>a+b,0)/window;
+    const my = ys.reduce((a,b)=>a+b,0)/window;
+    let num=0, dx=0, dy=0;
+    for(let k=0;k<window;k++){
+      const a=xs[k]-mx, b=ys[k]-my;
+      num += a*b; dx += a*a; dy += b*b;
+    }
+    out[i] = (dx>0 && dy>0) ? num/Math.sqrt(dx*dy) : NaN;
+  }
+  return out;
+}
+
+// OKX spot last
+async function okxSpotLast(instId){
+  const url = `https://www.okx.com/api/v5/market/ticker?instId=${encodeURIComponent(instId)}`;
+  const js = await fetchJSON(url);
+  const row = js?.data?.[0];
+  return row ? Number(row.last) : NaN;
+}
+
+// OKX perp: funding + OI + mark
+async function okxPerp(instIdSwap){
+  const frUrl = `https://www.okx.com/api/v5/public/funding-rate?instId=${encodeURIComponent(instIdSwap)}`;
+  const oiUrl = `https://www.okx.com/api/v5/public/open-interest?instType=SWAP&instId=${encodeURIComponent(instIdSwap)}`;
+  const mpUrl = `https://www.okx.com/api/v5/public/mark-price?instType=SWAP&instId=${encodeURIComponent(instIdSwap)}`;
+  const [fr, oi, mp] = await Promise.all([fetchJSON(frUrl), fetchJSON(oiUrl), fetchJSON(mpUrl)]);
+
+  const frRow = fr?.data?.[0];
+  const oiRow = oi?.data?.[0];
+  const mpRow = mp?.data?.[0];
+
+  const funding8h = frRow ? Number(frRow.fundingRate) : NaN;
+  const fundingAnn = Number.isNaN(funding8h) ? NaN : funding8h*3*365;
+
+  // OKX OI fields vary; keep best-effort:
+  const oiUsd = oiRow && oiRow.oiUsd !== undefined ? Number(oiRow.oiUsd) : NaN;
+  const oiCcy = oiRow && oiRow.oiCcy !== undefined ? Number(oiRow.oiCcy) : (oiRow && oiRow.oi !== undefined ? Number(oiRow.oi) : NaN);
+  const mark = mpRow ? Number(mpRow.markPx) : NaN;
+
+  return { funding8h, fundingAnn, oiUsd, oiCcy, mark };
+}
+
+// Deribit IV index
+async function deribitIV(currency){
+  const url = `https://www.deribit.com/api/v2/public/get_volatility_index_data?currency=${encodeURIComponent(currency)}`;
+  const js = await fetchJSON(url);
+  const arr = js?.result?.data || [];
+  if(!arr.length) return NaN;
+  const v = Number(arr[arr.length-1].v);
+  return Number.isFinite(v) ? v/100 : NaN;
+}
+
+// DefiLlama stablecoins total
+async function llamaStablesTotal(){
+  const url = `https://stablecoins.llama.fi/stablecoins`;
+  const js = await fetchJSON(url);
+  const hist = js?.totalCirculating || [];
+  if(!hist.length) return { last:NaN, d7:NaN, d30:NaN };
+  // hist: [{date: unix, totalCirculating: number}, ...]
+  const sorted = [...hist].sort((a,b)=>a.date-b.date);
+  const last = Number(sorted[sorted.length-1].totalCirculating);
+  const d7 = sorted.length>=8 ? (Number(sorted[sorted.length-1].totalCirculating) - Number(sorted[sorted.length-8].totalCirculating)) : NaN;
+  const d30 = sorted.length>=31 ? (Number(sorted[sorted.length-1].totalCirculating) - Number(sorted[sorted.length-31].totalCirculating)) : NaN;
+  return { last, d7, d30 };
+}
+
+// DefiLlama single stable
+async function llamaStable(symbol){
+  const url = `https://stablecoins.llama.fi/stablecoin/${encodeURIComponent(symbol)}`;
+  const js = await fetchJSON(url);
+  const hist = js?.circulating || [];
+  if(!hist.length) return { last:NaN, d7:NaN };
+  const sorted = [...hist].sort((a,b)=>a.date-b.date);
+  const last = Number(sorted[sorted.length-1].circulating);
+  const d7 = sorted.length>=8 ? (Number(sorted[sorted.length-1].circulating) - Number(sorted[sorted.length-8].circulating)) : NaN;
+  return { last, d7 };
+}
+
+/* -----------------------------
+   Macro (best-effort via Stooq CSV)
+   - Stooq often allows CORS. If it fails, you can remove macro.
+------------------------------ */
+async function stooqPct1d(symbol){
+  // Example: ^ndq for Nasdaq, ^spx for S&P, xauusd for gold, dx-y? (not present)
+  // We'll use: qqq.us, spy.us, gld.us as proxies, and "dx-y.nyb" isn't on stooq.
+  const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(symbol)}&i=d`;
+  const csv = await fetchText(url);
+  const lines = csv.trim().split("\n");
+  if(lines.length < 3) return NaN;
+  const last = lines[lines.length-1].split(",");
+  const prev = lines[lines.length-2].split(",");
+  const cLast = Number(last[4]); // Close
+  const cPrev = Number(prev[4]);
+  if(!(cLast>0 && cPrev>0)) return NaN;
+  return cLast/cPrev - 1;
+}
+
+/* -----------------------------
+   Render
+------------------------------ */
+function renderSnapshot(s){
+  const btc = s.btc, eth = s.eth;
+  const snapRow = document.getElementById("snapshotRow");
+  snapRow.innerHTML = [
+    metricCard("BTC Spot", fmtUSD(btc.usd,0), `${fmtPct(btc.usd_24h_change/100,2)} (24h)`),
+    metricCard("BTC 7D", fmtPct(btc.usd_7d_change/100,2), ""),
+    metricCard("ETH Spot", fmtUSD(eth.usd,0), `${fmtPct(eth.usd_24h_change/100,2)} (24h)`),
+    metricCard("ETH 7D", fmtPct(eth.usd_7d_change/100,2), ""),
+    metricCard("Total Crypto Mkt Cap", fmtUSD(s.totalMcap,0), `${fmtPct(s.totalMcap24h/100,2)} (24h)`),
+  ].join("");
+}
+
+function renderPerpTable(btc, eth, btcOiPct, ethOiPct, btcBasisAnn, ethBasisAnn){
+  const wrap = document.getElementById("perpTableWrap");
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Asset</th>
+          <th>Funding (ann.)</th>
+          <th>OI / MktCap</th>
+          <th>Basis (ann. proxy)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>BTC</td>
+          <td>${fmtPct(btc.fundingAnn,1)}</td>
+          <td>${fmtPct(btcOiPct,2)}</td>
+          <td>${fmtPct(btcBasisAnn,1)}</td>
+        </tr>
+        <tr>
+          <td>ETH</td>
+          <td>${fmtPct(eth.fundingAnn,1)}</td>
+          <td>${fmtPct(ethOiPct,2)}</td>
+          <td>${fmtPct(ethBasisAnn,1)}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+}
+
+function renderVol(rvBtc, ivBtc, rvEth, ivEth){
+  const row = document.getElementById("volRow");
+  row.innerHTML = [
+    metricCard("BTC 30D Realized Vol", fmtPct(rvBtc,1), ""),
+    metricCard("BTC 30D Implied Vol", fmtPct(ivBtc,1), ""),
+    metricCard("ETH 30D Realized Vol", fmtPct(rvEth,1), ""),
+    metricCard("ETH 30D Implied Vol", fmtPct(ivEth,1), ""),
+  ].join("");
+}
+
+function renderStables(tot, usdt, usdc){
+  const row = document.getElementById("stableRow");
+  row.innerHTML = [
+    metricCard("Total Stable MCAP", fmtUSD(tot.last,0), ""),
+    metricCard("Δ 7D", fmtUSD(tot.d7,0), ""),
+    metricCard("USDT (Δ7D)", fmtUSD(usdt.last,0), fmtUSD(usdt.d7,0)),
+    metricCard("USDC (Δ7D)", fmtUSD(usdc.last,0), fmtUSD(usdc.d7,0)),
+  ].join("");
+}
+
+function renderMacro(m){
+  const row = document.getElementById("macroRow");
+  row.innerHTML = [
+    metricCard("NASDAQ (QQQ)", "QQQ.US", fmtPct(m.qqq,2)),
+    metricCard("SPX (SPY)", "SPY.US", fmtPct(m.spy,2)),
+    metricCard("GOLD (GLD)", "GLD.US", fmtPct(m.gld,2)),
+    metricCard("DXY", "NA (proxy)", "NA"),
+  ].join("");
+}
+
+function renderFlags(leftFlags, rightFlags){
+  document.getElementById("flagsLeft").innerHTML = leftFlags.join("");
+  document.getElementById("flagsRight").innerHTML = rightFlags.join("");
+}
+
+/* -----------------------------
+   Main refresh
+------------------------------ */
+async function refresh(){
+  let partial = false;
+  try{
+    const snap = await getCoinGeckoSnapshot();
+    renderSnapshot(snap);
+
+    // Spots (OKX -> CG fallback)
+    let btcSpot = await okxSpotLast("BTC-USDT").catch(()=>NaN);
+    let ethSpot = await okxSpotLast("ETH-USDT").catch(()=>NaN);
+    let btcSpotSrc = "OKX";
+    let ethSpotSrc = "OKX";
+
+    if(Number.isNaN(btcSpot)){ btcSpot = snap.btc.usd; btcSpotSrc = "CoinGecko"; }
+    if(Number.isNaN(ethSpot)){ ethSpot = snap.eth.usd; ethSpotSrc = "CoinGecko"; }
+
+    document.getElementById("spotBTC").textContent = fmtUSD(btcSpot,0);
+    document.getElementById("spotBTCsrc").textContent = `source: ${btcSpotSrc}`;
+    document.getElementById("spotETH").textContent = fmtUSD(ethSpot,0);
+    document.getElementById("spotETHsrc").textContent = `source: ${ethSpotSrc}`;
+
+    // Perps (OKX)
+    const [btcPerp, ethPerp] = await Promise.all([
+      okxPerp("BTC-USDT-SWAP").catch(()=>({fundingAnn:NaN, oiUsd:NaN, oiCcy:NaN, mark:NaN})),
+      okxPerp("ETH-USDT-SWAP").catch(()=>({fundingAnn:NaN, oiUsd:NaN, oiCcy:NaN, mark:NaN}))
+    ]);
+
+    // OI / MktCap (best effort)
+    const btcMcap = Number(snap.btc.usd_market_cap);
+    const ethMcap = Number(snap.eth.usd_market_cap);
+
+    function oiNotional(perp, spot){
+      // Prefer oiUsd if provided; else oiCcy*mark (proxy)
+      if(!Number.isNaN(perp.oiUsd)) return perp.oiUsd;
+      if(!Number.isNaN(perp.oiCcy) && !Number.isNaN(perp.mark)) return perp.oiCcy * perp.mark;
+      return NaN;
+    }
+    const btcOiNotional = oiNotional(btcPerp, btcSpot);
+    const ethOiNotional = oiNotional(ethPerp, ethSpot);
+    const btcOiPct = (btcOiNotional>0 && btcMcap>0) ? btcOiNotional/btcMcap : NaN;
+    const ethOiPct = (ethOiNotional>0 && ethMcap>0) ? ethOiNotional/ethMcap : NaN;
+
+    // Basis proxy: perp mark vs spot
+    const btcBasisAnn = (!Number.isNaN(btcPerp.mark) && btcSpot>0) ? ((btcPerp.mark/btcSpot)-1)*365 : NaN;
+    const ethBasisAnn = (!Number.isNaN(ethPerp.mark) && ethSpot>0) ? ((ethPerp.mark/ethSpot)-1)*365 : NaN;
+
+    renderPerpTable(btcPerp, ethPerp, btcOiPct, ethOiPct, btcBasisAnn, ethBasisAnn);
+
+    // Vol/corr (CoinGecko daily) + Deribit IV
+    const [btcDaily, ethDaily] = await Promise.all([
+      getCoinGeckoDaily("bitcoin", Math.max(220, CORR_WINDOW_DAYS+20)).catch(()=>({dates:[], prices:[]})),
+      getCoinGeckoDaily("ethereum", Math.max(220, CORR_WINDOW_DAYS+20)).catch(()=>({dates:[], prices:[]}))
+    ]);
+
+    const btcLR = logReturns(btcDaily.prices);
+    const ethLR = logReturns(ethDaily.prices);
+
+    const btcRV = realizedVolAnn(btcLR, RV_WINDOW_DAYS, 365);
+    const ethRV = realizedVolAnn(ethLR, RV_WINDOW_DAYS, 365);
+    const lastBtcRV = btcRV.length ? btcRV[btcRV.length-1] : NaN;
+    const lastEthRV = ethRV.length ? ethRV[ethRV.length-1] : NaN;
+
+    const [btcIV, ethIV] = await Promise.all([
+      deribitIV("BTC").catch(()=>NaN),
+      deribitIV("ETH").catch(()=>NaN)
+    ]);
+
+    renderVol(lastBtcRV, btcIV, lastEthRV, ethIV);
+
+    // Corr 180D
+    let corr = NaN;
+    if(btcLR.length && ethLR.length){
+      const n = Math.min(btcLR.length, ethLR.length);
+      const cArr = rollingCorr(btcLR.slice(-n), ethLR.slice(-n), CORR_WINDOW_DAYS);
+      corr = cArr.length ? cArr[cArr.length-1] : NaN;
+    }
+    document.getElementById("corrLine").textContent = `BTC/ETH 180D corr: ${Number.isNaN(corr) ? "NA" : corr.toFixed(2)}`;
+
+    // Stables
+    const [stTot, usdt, usdc] = await Promise.all([
+      llamaStablesTotal().catch(()=>({last:NaN,d7:NaN,d30:NaN})),
+      llamaStable("USDT").catch(()=>({last:NaN,d7:NaN})),
+      llamaStable("USDC").catch(()=>({last:NaN,d7:NaN}))
+    ]);
+    renderStables(stTot, usdt, usdc);
+
+    // Macro (best-effort)
+    const macro = {
+      qqq: await stooqPct1d("qqq.us").catch(()=>NaN),
+      spy: await stooqPct1d("spy.us").catch(()=>NaN),
+      gld: await stooqPct1d("gld.us").catch(()=>NaN),
+    };
+    renderMacro(macro);
+
+    // Flags
+    const leftFlags = [];
+    const rightFlags = [];
+
+    // Funding flags
+    {
+      const [lvl, det] = ragFunding("BTC", btcPerp.fundingAnn);
+      leftFlags.push(flagRow("BTC Funding", lvl, det));
+    }
+    {
+      const [lvl, det] = ragFunding("ETH", ethPerp.fundingAnn);
+      leftFlags.push(flagRow("ETH Funding", lvl, det));
+    }
+
+    // OI flags
+    {
+      const [lvl, det] = ragOI("BTC", btcOiPct);
+      leftFlags.push(flagRow("BTC OI / MktCap", lvl, det));
+    }
+    {
+      const [lvl, det] = ragOI("ETH", ethOiPct);
+      leftFlags.push(flagRow("ETH OI / MktCap", lvl, det));
+    }
+
+    // Basis flags
+    {
+      const [lvl, det] = ragBasis("BTC", btcBasisAnn);
+      leftFlags.push(flagRow("BTC Basis", lvl, det));
+    }
+    {
+      const [lvl, det] = ragBasis("ETH", ethBasisAnn);
+      leftFlags.push(flagRow("ETH Basis", lvl, det));
+    }
+
+    // RV vs IV
+    {
+      const [lvl, det] = ragRVIV("BTC RV vs IV", lastBtcRV, btcIV);
+      rightFlags.push(flagRow("BTC RV vs IV", lvl, det));
+    }
+    {
+      const [lvl, det] = ragRVIV("ETH RV vs IV", lastEthRV, ethIV);
+      rightFlags.push(flagRow("ETH RV vs IV", lvl, det));
+    }
+
+    // Stable supply
+    {
+      const [lvl, det] = ragStables(stTot.d30);
+      rightFlags.push(flagRow("Stablecoin Supply (30D)", lvl, det));
+    }
+
+    // Corr
+    {
+      const [lvl, det] = ragCorr(corr);
+      rightFlags.push(flagRow("BTC/ETH Correlation (180D)", lvl, det));
+    }
+
+    renderFlags(leftFlags, rightFlags);
+    setLastUpdate(true);
+
+  }catch(e){
+    console.error(e);
+    setLastUpdate(false);
+    document.getElementById("flagsLeft").innerHTML = flagRow("Dashboard", "RED", `Error refreshing: ${String(e)}`);
+  }
+}
+
+/* -----------------------------
+   UI actions
+------------------------------ */
+document.getElementById("refreshBtn").addEventListener("click", () => refresh());
+
+document.getElementById("thresholdBtn").addEventListener("click", () => {
+  const t = loadThresholds();
+  const input = prompt(
+`Edit thresholds as JSON (numbers). Example:
+{
+  "FUNDING_CROWDED_LONG_ANN": 0.3,
+  "OI_MKTCAP_WARN": 0.02
+}
+`, JSON.stringify(t, null, 2));
+  if(!input) return;
+  try{
+    const parsed = JSON.parse(input);
+    saveThresholds({...t, ...parsed});
+    T = loadThresholds();
+    refresh();
+  }catch(e){
+    alert("Invalid JSON.");
+  }
+});
+
+/* -----------------------------
+   Auto-refresh
+------------------------------ */
+refresh();
+setInterval(refresh, 60_000); // refresh every 60s
+</script>
+
+<!--
+=========================================
+OPTIONAL: Add ETF flows (Farside) via FREE Cloudflare Worker proxy
+
+Why: Farside is HTML + often blocked by browser CORS. A worker fetches it server-side and returns JSON.
+Cloudflare Workers has a free tier.
+
+Worker code (index.js):
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    const target = url.searchParams.get("url");
+    if (!target) return new Response("Missing url", { status: 400 });
+    const res = await fetch(target, { headers: { "User-Agent": "Mozilla/5.0" }});
+    const text = await res.text();
+    return new Response(text, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "public, max-age=60"
+      }
+    });
+  }
+}
+
+Then from the browser you fetch:
+https://YOUR-WORKER.your-subdomain.workers.dev/?url=https%3A%2F%2Ffarside.co.uk%2Fbitcoin-etf-flow-all-data%2F
+
+Parse table client-side with DOMParser.
+=========================================
+-->
+</body>
+</html>
