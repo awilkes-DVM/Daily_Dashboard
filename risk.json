@@ -26,7 +26,7 @@
   "portfolio": {
     "vol_ann": 0.42,
     "vol_target_ann": 0.35,
-    "drawdown": -0.11
+    "drawdown": -0.15
   },
 
   "hedge": {
@@ -37,7 +37,7 @@
   },
 
   "regime": {
-    "funding_pctile": 0.87,
+    "funding_pctile": 0.90,
     "vol_pctile": 0.26,
     "extension_z": 1.7,
     "etf_flow_weekly": 320
