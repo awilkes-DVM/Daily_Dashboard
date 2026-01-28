@@ -1,903 +1,321 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>BTC/ETH Daily Drivers Dashboard</title>
-  <style>
-    :root{
-      --bg:#0b0f14;
-      --panel:#111824;
-      --panel2:#0f1622;
-      --text:#e7eef9;
-      --muted:#9bb0c7;
-      --green:#2dd4bf;
-      --amber:#fbbf24;
-      --red:#fb7185;
-      --line:#1f2a3a;
-      --chip:#0b1220;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-    }
-    body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); }
-    .wrap{ max-width:1200px; margin:0 auto; padding:18px; }
-    h1{ font-size:20px; margin:0 0 6px; }
-    .sub{ color:var(--muted); font-size:13px; margin-bottom:14px; }
-    .row{ display:grid; gap:12px; }
-    .row.cols5{ grid-template-columns: repeat(5, minmax(0,1fr)); }
-    .row.cols4{ grid-template-columns: repeat(4, minmax(0,1fr)); }
-    .row.cols3{ grid-template-columns: repeat(3, minmax(0,1fr)); }
-    .row.cols2{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-    @media (max-width: 980px){
-      .row.cols5{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-      .row.cols4{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-      .row.cols3{ grid-template-columns: 1fr; }
-      .row.cols2{ grid-template-columns: 1fr; }
-    }
-    .card{
-      background:linear-gradient(180deg,var(--panel),var(--panel2));
-      border:1px solid var(--line);
-      border-radius:14px;
-      padding:12px 12px 10px;
-      box-shadow: 0 8px 20px rgba(0,0,0,.25);
-    }
-    .metric-label{ font-size:12px; color:var(--muted); }
-    .metric-val{ font-size:20px; margin-top:4px; font-family:var(--mono); }
-    .metric-delta{ font-size:12px; margin-top:3px; color:var(--muted); }
-    .divider{ height:1px; background:var(--line); margin:14px 0; }
-    .section-title{ font-size:14px; color:var(--text); margin:0 0 10px; }
-    .flags{ display:flex; flex-direction:column; gap:8px; }
-    .flag{
-      border:1px solid var(--line);
-      border-radius:12px;
-      padding:9px 10px;
-      background: #0b1220;
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:10px;
-    }
-    .flag .left{ display:flex; flex-direction:column; gap:2px; }
-    .flag .name{ font-size:13px; }
-    .flag .detail{ font-size:12px; color:var(--muted); }
-    .badge{
-      font-size:11px;
-      font-family:var(--mono);
-      padding:4px 8px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background:var(--chip);
-      white-space:nowrap;
-    }
-    .badge.green{ color:var(--green); border-color: rgba(45,212,191,.35); }
-    .badge.amber{ color:var(--amber); border-color: rgba(251,191,36,.35); }
-    .badge.red{ color:var(--red); border-color: rgba(251,113,133,.35); }
-    table{
-      width:100%;
-      border-collapse:collapse;
-      font-size:12px;
-      overflow:hidden;
-      border-radius:12px;
-      border:1px solid var(--line);
-    }
-    th, td{
-      padding:10px 10px;
-      border-bottom:1px solid var(--line);
-      text-align:left;
-      font-family:var(--mono);
-    }
-    th{ color:var(--muted); font-weight:600; background:#0b1220; font-family:var(--sans); }
-    tr:last-child td{ border-bottom:none; }
-    .note{ color:var(--muted); font-size:12px; margin-top:8px; line-height:1.35; }
-    .topbar{
-      display:flex; justify-content:space-between; align-items:center; gap:12px;
-      margin-bottom:10px;
-    }
-    .righttools{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-    .btn{
-      cursor:pointer;
-      border:1px solid var(--line);
-      background:#0b1220;
-      color:var(--text);
-      border-radius:10px;
-      padding:8px 10px;
-      font-size:12px;
-    }
-    .btn:hover{ border-color:#2a3a52; }
-    .chip{
-      border:1px solid var(--line);
-      background:#0b1220;
-      border-radius:10px;
-      padding:8px 10px;
-      font-size:12px;
-      color:var(--muted);
-      font-family:var(--mono);
-    }
-    .mono{ font-family:var(--mono); }
-    .small{ font-size:12px; color:var(--muted); }
-  </style>
-</head>
+<!-- ==============================
+     Portfolio Risk (Fat Tail Aware)
+     Drop-in section + JS helpers
+     ============================== -->
 
-<body>
-  <div class="wrap">
-    <div class="topbar">
-      <div>
-        <h1>BTC/ETH Daily Drivers Dashboard</h1>
-        <div class="sub">Static site (GitHub Pages) • Live fetch from CoinGecko / OKX / DefiLlama / Deribit • R/A/G flags • ETF flows via Cloudflare Worker</div>
-      </div>
-      <div class="righttools">
-        <div class="chip" id="lastUpdate">last update: —</div>
-        <button class="btn" id="refreshBtn">Refresh now</button>
-        <button class="btn" id="thresholdBtn">Edit thresholds</button>
-      </div>
+<!-- Add this HTML block where you want the risk panel to appear -->
+<div class="card">
+  <div class="section-title">Portfolio Risk (Fat Tail Aware)</div>
+  <div class="small">Sleeves • Vol/DD governors • Hedge convexity • Regime state</div>
+  <div class="divider"></div>
+
+  <!-- Top tiles -->
+  <div class="row cols4" id="riskTopRow"></div>
+
+  <div class="divider"></div>
+
+  <!-- Sleeves + Hedge health -->
+  <div class="row cols2">
+    <div class="card" style="background:#0b1220;">
+      <div class="section-title">Sleeves & Exposures</div>
+      <div id="riskSleevesTable"></div>
+      <div class="note">Crypto sizing engine still applies inside the crypto sleeve. These controls operate at total NAV.</div>
     </div>
 
-    <!-- Market Snapshot -->
-    <div class="row cols5" id="snapshotRow"></div>
-
-    <div class="divider"></div>
-
-    <!-- Flags -->
-    <div class="row cols2">
-      <div class="card">
-        <div class="section-title">Daily Flags (R/A/G)</div>
-        <div class="flags" id="flagsLeft"></div>
-      </div>
-      <div class="card">
-        <div class="section-title">Risk / Liquidity Flags</div>
-        <div class="flags" id="flagsRight"></div>
-      </div>
-    </div>
-
-    <div class="divider"></div>
-
-    <!-- Spot flows + Leverage -->
-    <div class="row cols2">
-      <div class="card">
-        <div class="section-title">Spot Flows & Institutional Demand</div>
-
-        <!-- ETF Flows (Farside via Worker proxy) -->
-        <div class="row cols3" style="margin-top:10px;" id="etfRow"></div>
-        <div class="note" id="etfNote">ETF flows source: Farside (via Cloudflare Worker proxy).</div>
-
-        <div class="divider"></div>
-
-        <div class="small">Spot prices (fallback order): OKX → CoinGecko</div>
-        <div class="row cols2" style="margin-top:10px;">
-          <div class="card" style="background:#0b1220;">
-            <div class="metric-label">BTC Spot (USD)</div>
-            <div class="metric-val" id="spotBTC">$—</div>
-            <div class="metric-delta" id="spotBTCsrc">source: —</div>
-          </div>
-          <div class="card" style="background:#0b1220;">
-            <div class="metric-label">ETH Spot (USD)</div>
-            <div class="metric-val" id="spotETH">$—</div>
-            <div class="metric-delta" id="spotETHsrc">source: —</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="section-title">Leverage & Positioning (Perps)</div>
-        <div class="small">Perp venue: OKX public endpoints (no Binance dependency).</div>
-        <div class="divider"></div>
-        <div id="perpTableWrap"></div>
-        <div class="note">Funding is annualized as: funding_8h × 3 × 365 (rough). OI/MktCap is best-effort from OKX OI fields.</div>
-      </div>
-    </div>
-
-    <div class="divider"></div>
-
-    <!-- Vol + Stablecoins -->
-    <div class="row cols2">
-      <div class="card">
-        <div class="section-title">Volatility / Risk Regime</div>
-        <div class="row cols4" id="volRow"></div>
-        <div class="note">Realized vol uses 30D log returns (CoinGecko daily). Implied vol uses Deribit vol index (proxy).</div>
-        <div class="divider"></div>
-        <div class="small mono" id="corrLine">BTC/ETH 180D corr: —</div>
-      </div>
-
-      <div class="card">
-        <div class="section-title">Liquidity Fuel (Stablecoins)</div>
-        <div class="row cols4" id="stableRow"></div>
-        <div class="note">Stablecoin supply from DefiLlama. Positive 30D change = liquidity tailwind; negative = headwind.</div>
-      </div>
-    </div>
-
-    <div class="divider"></div>
-
-    <!-- Macro strip (best-effort) -->
-    <div class="card">
-      <div class="section-title">Macro Cross-Asset Tape (best-effort)</div>
-      <div class="small">
-        Best-effort using Stooq free CSV. If it shows NA, remove this section or proxy via Worker.
-      </div>
-      <div class="divider"></div>
-      <div class="row cols4" id="macroRow"></div>
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="small">
-      If any box shows NA, it usually means an API rate limit or temporary fetch failure. Hit “Refresh now” or wait for the next cycle.
+    <div class="card" style="background:#0b1220;">
+      <div class="section-title">Hedge Health</div>
+      <div id="riskHedgeTable"></div>
+      <div class="note">Convexity ratio = Payout(-40% BTC) ÷ Annual hedge cost. Aim high without bleeding out.</div>
     </div>
   </div>
 
-<script>
-/* -----------------------------
-   Thresholds (editable)
------------------------------- */
-const defaultThresholds = {
-  FUNDING_CROWDED_LONG_ANN: 0.30,
-  FUNDING_CROWDED_SHORT_ANN: -0.30,
-  OI_MKTCAP_WARN: 0.02,
-  OI_MKTCAP_DANGER: 0.05,
-  BASIS_WARN_ANN: 0.20,
-  BASIS_DANGER_ANN: 0.50,
-  RV_GT_IV_WARN: 0.05,
-  STABLES_D30_WARN_USD: -5e9,
-  STABLES_D30_DANGER_USD: -15e9,
-  BTC_ETH_CORR_HIGH: 0.80
-};
+  <div class="divider"></div>
 
-function loadThresholds(){
-  try{
-    const raw = localStorage.getItem("thresholds");
-    if(!raw) return {...defaultThresholds};
-    const parsed = JSON.parse(raw);
-    return {...defaultThresholds, ...parsed};
-  }catch(e){
-    return {...defaultThresholds};
-  }
-}
-function saveThresholds(t){ localStorage.setItem("thresholds", JSON.stringify(t)); }
-
-let T = loadThresholds();
-
-/* -----------------------------
-   ETF flows config (YOUR WORKER)
------------------------------- */
-const FARSIDE_WORKER_BASE = "https://daily-dashboard.awilkes.workers.dev/";
-const FARSIDE_BTC_URL = "https://farside.co.uk/bitcoin-etf-flow-all-data/";
-
-/* -----------------------------
-   Formatting helpers
------------------------------- */
-function fmtUSD(x, decimals=0){
-  if(x === null || x === undefined || Number.isNaN(x)) return "NA";
-  return "$" + Number(x).toLocaleString(undefined, {maximumFractionDigits:decimals});
-}
-function fmtPct(x, decimals=2){
-  if(x === null || x === undefined || Number.isNaN(x)) return "NA";
-  return (100*Number(x)).toFixed(decimals) + "%";
-}
-function nowStr(){
-  const d = new Date();
-  return d.toLocaleString();
-}
-function setLastUpdate(ok=true){
-  const el = document.getElementById("lastUpdate");
-  el.textContent = `last update: ${nowStr()}` + (ok ? "" : " (partial)");
-}
-
-/* -----------------------------
-   DOM builders
------------------------------- */
-function metricCard(label, value, delta){
-  return `
-    <div class="card">
-      <div class="metric-label">${label}</div>
-      <div class="metric-val">${value}</div>
-      <div class="metric-delta">${delta ?? ""}</div>
+  <!-- Regime + Actions -->
+  <div class="row cols2">
+    <div class="card" style="background:#0b1220;">
+      <div class="section-title">Regime Inputs</div>
+      <div id="riskRegimeTable"></div>
+      <div class="note">If you don’t have a field yet, leave it null; regime logic ignores missing inputs.</div>
     </div>
-  `;
-}
 
-function flagRow(name, level, detail){
-  const cls = level.toLowerCase();
-  return `
-    <div class="flag">
-      <div class="left">
-        <div class="name">${name}</div>
-        <div class="detail">${detail}</div>
+    <div class="card" style="background:#0b1220;">
+      <div class="section-title">Actions (auto)</div>
+      <div class="flags" id="riskActions"></div>
+      <div class="note">Euphoria → add tactical puts / increase collars. Panic → take profits on hedges, redeploy into core.</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Config / Input -->
+  <div class="row cols2">
+    <div class="card" style="background:#0b1220;">
+      <div class="section-title">Risk Data Source</div>
+      <div class="small mono">Set a URL to auto-fetch JSON, or use manual JSON below.</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+        <input id="riskEndpoint" class="chip mono" style="min-width:320px; flex:1;"
+               placeholder="https://your-endpoint.example/risk.json (optional)" />
+        <button class="btn" id="riskSaveEndpointBtn">Save endpoint</button>
+        <button class="btn" id="riskFetchBtn">Fetch now</button>
       </div>
-      <div class="badge ${cls}">${level}</div>
+      <div class="note">Endpoint must return JSON and allow CORS. Cloudflare Worker is ideal.</div>
     </div>
-  `;
+
+    <div class="card" style="background:#0b1220;">
+      <div class="section-title">Manual Risk Snapshot (JSON)</div>
+      <div class="small">Paste snapshot → Save → Render.</div>
+      <textarea id="riskJsonBox" class="mono" style="width:100%; min-height:160px; margin-top:10px; border:1px solid var(--line); border-radius:12px; background:#0b1220; color:var(--text); padding:10px;"></textarea>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+        <button class="btn" id="riskLoadSampleBtn">Load sample</button>
+        <button class="btn" id="riskSaveJsonBtn">Save</button>
+        <button class="btn" id="riskRenderBtn">Render</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==============================
+     JS: Risk panel helpers
+     Put this inside your existing <script> block.
+     Requires your existing helpers:
+       metricCard(), flagRow(), fmtUSD(), fmtPct(), fetchJSON()
+     ============================== -->
+<script>
+function fmtNum(x, decimals=2){
+  if(x === null || x === undefined || Number.isNaN(x)) return "NA";
+  return Number(x).toFixed(decimals);
+}
+function safe(x){ return (x === null || x === undefined) ? NaN : Number(x); }
+
+function computeGVol(portVol, targetVol){
+  if(!(portVol>0) || !(targetVol>0)) return NaN;
+  return Math.min(1, targetVol / portVol);
 }
 
-function ragFunding(fAnn){
-  if(Number.isNaN(fAnn)) return ["AMBER", "Funding unavailable"];
-  if(fAnn >= T.FUNDING_CROWDED_LONG_ANN) return ["RED", `Crowded long: ${fmtPct(fAnn,1)} ann`];
-  if(fAnn <= T.FUNDING_CROWDED_SHORT_ANN) return ["RED", `Crowded short: ${fmtPct(fAnn,1)} ann`];
-  return ["GREEN", `Funding ${fmtPct(fAnn,1)} ann`];
-}
-function ragOI(oiPct){
-  if(Number.isNaN(oiPct)) return ["AMBER", "OI/MktCap unavailable"];
-  if(oiPct >= T.OI_MKTCAP_DANGER) return ["RED", `High leverage: ${fmtPct(oiPct,2)}`];
-  if(oiPct >= T.OI_MKTCAP_WARN) return ["AMBER", `Elevated: ${fmtPct(oiPct,2)}`];
-  return ["GREEN", `${fmtPct(oiPct,2)}`];
-}
-function ragBasis(bAnn){
-  if(Number.isNaN(bAnn)) return ["AMBER", "Basis unavailable"];
-  if(Math.abs(bAnn) >= T.BASIS_DANGER_ANN) return ["RED", `Extreme basis: ${fmtPct(bAnn,1)} ann`];
-  if(Math.abs(bAnn) >= T.BASIS_WARN_ANN) return ["AMBER", `Elevated basis: ${fmtPct(bAnn,1)} ann`];
-  return ["GREEN", `${fmtPct(bAnn,1)} ann`];
-}
-function ragRVIV(rv, iv){
-  if(Number.isNaN(rv) || Number.isNaN(iv)) return ["AMBER", "RV/IV unavailable"];
-  const diff = rv - iv;
-  if(diff >= T.RV_GT_IV_WARN) return ["AMBER", `RV > IV by ${(diff*100).toFixed(1)} vol pts`];
-  return ["GREEN", `RV-IV ${(diff*100).toFixed(1)} vol pts`];
-}
-function ragStables(d30){
-  if(Number.isNaN(d30)) return ["AMBER", "Stable supply unavailable"];
-  if(d30 <= T.STABLES_D30_DANGER_USD) return ["RED", `${(d30/1e9).toFixed(1)}B (liquidity drain)`];
-  if(d30 <= T.STABLES_D30_WARN_USD) return ["AMBER", `${(d30/1e9).toFixed(1)}B (headwind)`];
-  return ["GREEN", `${(d30/1e9).toFixed(1)}B`];
-}
-function ragCorr(corr){
-  if(Number.isNaN(corr)) return ["AMBER", "Correlation unavailable"];
-  if(corr >= T.BTC_ETH_CORR_HIGH) return ["AMBER", `High corr ${corr.toFixed(2)} → less diversification`];
-  return ["GREEN", `${corr.toFixed(2)}`];
-}
-function ragETF(sum5d){
-  if(Number.isNaN(sum5d)) return ["AMBER", "ETF flows unavailable"];
-  // Simple: negative 5D is amber, positive is green (tune if you want red thresholds)
-  return (sum5d >= 0) ? ["GREEN", `${sum5d.toFixed(0)} US$mm (5D)`] : ["AMBER", `${sum5d.toFixed(0)} US$mm (5D)`];
+function computeGDd(dd){
+  if(dd === null || dd === undefined || Number.isNaN(dd)) return NaN;
+  const x = Math.abs(Number(dd));
+  if(x >= 0.30) return 0.40;
+  if(x >= 0.20) return 0.60;
+  if(x >= 0.10) return 0.80;
+  return 1.00;
 }
 
-/* -----------------------------
-   Fetch helpers
------------------------------- */
-async function fetchJSON(url){
-  const res = await fetch(url, { method:"GET" });
-  if(!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.json();
-}
-async function fetchText(url){
-  const res = await fetch(url, { method:"GET" });
-  if(!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.text();
-}
+function computeRiskRegime(ind){
+  const f = ind.funding_pctile;
+  const v = ind.vol_pctile;
+  const z = ind.extension_z;
+  const flowW = ind.etf_flow_weekly;
 
-/* -----------------------------
-   Data sources
------------------------------- */
-async function getCoinGeckoSnapshot(){
-  const priceUrl = `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true&include_7d_change=true&include_market_cap=true`;
-  const globalUrl = `https://api.coingecko.com/api/v3/global`;
-  const [p, g] = await Promise.all([fetchJSON(priceUrl), fetchJSON(globalUrl)]);
-  return {
-    btc: p.bitcoin,
-    eth: p.ethereum,
-    totalMcap: g?.data?.total_market_cap?.usd ?? NaN,
-    totalMcap24h: g?.data?.market_cap_change_percentage_24h_usd ?? NaN
-  };
+  let score = 0;
+  let why = [];
+
+  if (Number.isFinite(f) && f > 0.85) { score += 2; why.push("funding high"); }
+  if (Number.isFinite(v) && v < 0.30) { score += 1; why.push("vol low"); }
+  if (Number.isFinite(z) && z > 1.5) { score += 1; why.push("price extended"); }
+  if (Number.isFinite(flowW) && flowW > 0) { score += 0.5; why.push("flows positive"); }
+
+  if (Number.isFinite(v) && v > 0.80) { score -= 2; why.push("vol high"); }
+  if (Number.isFinite(z) && z < -1.5) { score -= 1; why.push("price dislocated"); }
+  if (Number.isFinite(flowW) && flowW < 0) { score -= 0.5; why.push("flows negative"); }
+
+  let regime = "NORMAL";
+  if (score >= 3) regime = "EUPHORIA";
+  else if (score >= 1.5) regime = "RISK-ON";
+  else if (score <= -2.5) regime = "PANIC";
+  else if (score <= -1.0) regime = "RISK-OFF";
+
+  return { regime, why: why.length ? why.join(", ") : "insufficient indicators" };
 }
-
-async function getCoinGeckoDaily(coinId, days){
-  const url = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=${days}&interval=daily`;
-  const js = await fetchJSON(url);
-  const raw = js.prices || [];
-
-  // Dedup by date (handles days+1 behavior)
-  const map = new Map();
-  for(const [ts, price] of raw){
-    const d = new Date(ts);
-    const key = d.toISOString().slice(0,10);
-    map.set(key, price);
-  }
-  const dates = Array.from(map.keys()).sort();
-  const prices = dates.map(k => map.get(k));
-  return { dates, prices };
+function badgeForRegime(regime){
+  if (regime === "PANIC") return "RED";
+  if (regime === "EUPHORIA") return "AMBER";
+  if (regime === "RISK-OFF") return "AMBER";
+  return "GREEN";
 }
 
-// OKX spot last
-async function okxSpotLast(instId){
-  const url = `https://www.okx.com/api/v5/market/ticker?instId=${encodeURIComponent(instId)}`;
-  const js = await fetchJSON(url);
-  const row = js?.data?.[0];
-  return row ? Number(row.last) : NaN;
-}
+function renderRiskPanel(data){
+  const portVol = safe(data?.portfolio?.vol_ann);
+  const volTgt  = safe(data?.portfolio?.vol_target_ann);
+  const dd      = safe(data?.portfolio?.drawdown);
 
-// OKX perp: funding + OI + mark
-async function okxPerp(instIdSwap){
-  const frUrl = `https://www.okx.com/api/v5/public/funding-rate?instId=${encodeURIComponent(instIdSwap)}`;
-  const oiUrl = `https://www.okx.com/api/v5/public/open-interest?instType=SWAP&instId=${encodeURIComponent(instIdSwap)}`;
-  const mpUrl = `https://www.okx.com/api/v5/public/mark-price?instType=SWAP&instId=${encodeURIComponent(instIdSwap)}`;
-  const [fr, oi, mp] = await Promise.all([fetchJSON(frUrl), fetchJSON(oiUrl), fetchJSON(mpUrl)]);
+  const gVol = computeGVol(portVol, volTgt);
+  const gDd  = computeGDd(dd);
+  const g    = (Number.isFinite(gVol) && Number.isFinite(gDd)) ? Math.min(gVol, gDd) : NaN;
 
-  const frRow = fr?.data?.[0];
-  const oiRow = oi?.data?.[0];
-  const mpRow = mp?.data?.[0];
+  const reg = computeRiskRegime({
+    funding_pctile: safe(data?.regime?.funding_pctile),
+    vol_pctile: safe(data?.regime?.vol_pctile),
+    extension_z: safe(data?.regime?.extension_z),
+    etf_flow_weekly: safe(data?.regime?.etf_flow_weekly)
+  });
 
-  const funding8h = frRow ? Number(frRow.fundingRate) : NaN;
-  const fundingAnn = Number.isNaN(funding8h) ? NaN : funding8h*3*365;
-
-  // OKX OI fields vary; keep best-effort:
-  const oiUsd = (oiRow && oiRow.oiUsd !== undefined) ? Number(oiRow.oiUsd) : NaN;
-  const oiCcy = (oiRow && oiRow.oiCcy !== undefined) ? Number(oiRow.oiCcy) :
-                ((oiRow && oiRow.oi !== undefined) ? Number(oiRow.oi) : NaN);
-  const mark = mpRow ? Number(mpRow.markPx) : NaN;
-
-  return { funding8h, fundingAnn, oiUsd, oiCcy, mark };
-}
-
-// Deribit IV index
-async function deribitIV(currency){
-  const url = `https://www.deribit.com/api/v2/public/get_volatility_index_data?currency=${encodeURIComponent(currency)}`;
-  const js = await fetchJSON(url);
-  const arr = js?.result?.data || [];
-  if(!arr.length) return NaN;
-  const v = Number(arr[arr.length-1].v);
-  return Number.isFinite(v) ? v/100 : NaN;
-}
-
-// DefiLlama stablecoins total
-async function llamaStablesTotal(){
-  const url = `https://stablecoins.llama.fi/stablecoins`;
-  const js = await fetchJSON(url);
-  const hist = js?.totalCirculating || [];
-  if(!hist.length) return { last:NaN, d7:NaN, d30:NaN };
-
-  const sorted = [...hist].sort((a,b)=>a.date-b.date);
-  const last = Number(sorted[sorted.length-1].totalCirculating);
-  const d7  = (sorted.length>=8)  ? (Number(sorted[sorted.length-1].totalCirculating) - Number(sorted[sorted.length-8].totalCirculating)) : NaN;
-  const d30 = (sorted.length>=31) ? (Number(sorted[sorted.length-1].totalCirculating) - Number(sorted[sorted.length-31].totalCirculating)) : NaN;
-  return { last, d7, d30 };
-}
-
-// DefiLlama single stable
-async function llamaStable(symbol){
-  const url = `https://stablecoins.llama.fi/stablecoin/${encodeURIComponent(symbol)}`;
-  const js = await fetchJSON(url);
-  const hist = js?.circulating || [];
-  if(!hist.length) return { last:NaN, d7:NaN };
-
-  const sorted = [...hist].sort((a,b)=>a.date-b.date);
-  const last = Number(sorted[sorted.length-1].circulating);
-  const d7 = (sorted.length>=8) ? (Number(sorted[sorted.length-1].circulating) - Number(sorted[sorted.length-8].circulating)) : NaN;
-  return { last, d7 };
-}
-
-/* -----------------------------
-   Realized vol + corr (client-side)
------------------------------- */
-function logReturns(prices){
-  const r = [];
-  for(let i=1;i<prices.length;i++){
-    const p0 = prices[i-1], p1=prices[i];
-    if(!(p0>0 && p1>0)) continue;
-    r.push(Math.log(p1/p0));
-  }
-  return r;
-}
-function rollingStd(arr, window){
-  const out = new Array(arr.length).fill(NaN);
-  for(let i=window-1;i<arr.length;i++){
-    const slice = arr.slice(i-window+1, i+1);
-    const mean = slice.reduce((a,b)=>a+b,0)/slice.length;
-    const varr = slice.reduce((a,b)=>a+(b-mean)*(b-mean),0)/(slice.length-1);
-    out[i] = Math.sqrt(varr);
-  }
-  return out;
-}
-function realizedVolAnn(logRets, window, daysPerYear=365){
-  const sd = rollingStd(logRets, window);
-  return sd.map(x => Number.isNaN(x) ? NaN : x*Math.sqrt(daysPerYear));
-}
-function rollingCorr(x,y,window){
-  const n = Math.min(x.length,y.length);
-  const out = new Array(n).fill(NaN);
-  for(let i=window-1;i<n;i++){
-    const xs = x.slice(i-window+1, i+1);
-    const ys = y.slice(i-window+1, i+1);
-    const mx = xs.reduce((a,b)=>a+b,0)/window;
-    const my = ys.reduce((a,b)=>a+b,0)/window;
-    let num=0, dx=0, dy=0;
-    for(let k=0;k<window;k++){
-      const a=xs[k]-mx, b=ys[k]-my;
-      num += a*b; dx += a*a; dy += b*b;
-    }
-    out[i] = (dx>0 && dy>0) ? num/Math.sqrt(dx*dy) : NaN;
-  }
-  return out;
-}
-
-/* -----------------------------
-   ETF flows (Farside via Worker proxy)
------------------------------- */
-function parseNumberFromCell(txt){
-  if(!txt) return NaN;
-  const clean = txt.replace(/[$,]/g,"").replace(/\s+/g," ").trim();
-  const parenNeg = /^\((.*)\)$/.exec(clean);
-  if(parenNeg) return -Number(parenNeg[1]);
-  if(clean === "-" || clean === "–" || clean.toLowerCase() === "na") return NaN;
-  const m = clean.match(/-?\d+(\.\d+)?/);
-  return m ? Number(m[0]) : NaN;
-}
-function parseDateCell(txt){
-  const t = (txt||"").trim();
-  const m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if(m){
-    const dd = Number(m[1]), mm = Number(m[2]), yyyy = Number(m[3]);
-    return new Date(Date.UTC(yyyy, mm-1, dd));
-  }
-  const d = new Date(t);
-  return isNaN(d.getTime()) ? null : d;
-}
-async function fetchFarsideHTML(){
-  const url = `${FARSIDE_WORKER_BASE}/?url=${encodeURIComponent(FARSIDE_BTC_URL)}`;
-  return await fetchText(url);
-}
-function extractFarsideTotals(html){
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  const table = doc.querySelector("table");
-  if(!table) return [];
-
-  const rows = Array.from(table.querySelectorAll("tr"));
-  if(rows.length < 2) return [];
-
-  const headerCells = Array.from(rows[0].querySelectorAll("th,td")).map(x=>x.textContent.trim().toLowerCase());
-  let totalIdx = headerCells.findIndex(h => h === "total");
-  if(totalIdx < 0) totalIdx = headerCells.length - 1;
-
-  const out = [];
-  for(let i=1;i<rows.length;i++){
-    const cells = Array.from(rows[i].querySelectorAll("td"));
-    if(cells.length < 2) continue;
-
-    const dt = parseDateCell(cells[0].textContent);
-    if(!dt) continue;
-
-    const total = parseNumberFromCell(cells[totalIdx]?.textContent ?? "");
-    if(!Number.isFinite(total)) continue;
-
-    out.push({ date: dt, total_usd_mm: total });
-  }
-  out.sort((a,b)=>a.date - b.date);
-  return out;
-}
-function computeETF(flowRows){
-  if(!flowRows.length) return { latest:NaN, sum5d:NaN, mtd:NaN, latestDate:null };
-
-  const latestRow = flowRows[flowRows.length-1];
-  const latestDate = latestRow.date;
-  const latest = latestRow.total_usd_mm;
-
-  const cutoff5 = new Date(latestDate.getTime() - 5*24*3600*1000);
-  const sum5d = flowRows.filter(r => r.date > cutoff5).reduce((acc,r)=>acc + r.total_usd_mm, 0);
-
-  const y = latestDate.getUTCFullYear();
-  const m = latestDate.getUTCMonth();
-  const mStart = new Date(Date.UTC(y, m, 1));
-  const mtd = flowRows.filter(r => r.date >= mStart).reduce((acc,r)=>acc + r.total_usd_mm, 0);
-
-  return { latest, sum5d, mtd, latestDate };
-}
-function renderETF(etf){
-  const row = document.getElementById("etfRow");
-  const dateStr = etf.latestDate ? etf.latestDate.toISOString().slice(0,10) : "—";
-  row.innerHTML = [
-    metricCard("BTC Spot ETF Net Flow (US$mm)", (Number.isNaN(etf.latest)? "NA" : etf.latest.toFixed(0)), `latest (${dateStr})`),
-    metricCard("5D Sum (US$mm)", (Number.isNaN(etf.sum5d)? "NA" : etf.sum5d.toFixed(0)), ""),
-    metricCard("MTD Sum (US$mm)", (Number.isNaN(etf.mtd)? "NA" : etf.mtd.toFixed(0)), ""),
+  const nav = safe(data?.nav_usd);
+  const asof = data?.asof ? String(data.asof) : "—";
+  const top = document.getElementById("riskTopRow");
+  top.innerHTML = [
+    metricCard("Total NAV", Number.isFinite(nav) ? fmtUSD(nav,0) : "NA", `as of ${asof}`),
+    metricCard("Portfolio Vol (ann.)", fmtPct(portVol,1), `target ${fmtPct(volTgt,1)} • g_vol ${Number.isFinite(gVol)? gVol.toFixed(2):"NA"}`),
+    metricCard("Drawdown (P→T)", fmtPct(dd,1), `g_dd ${Number.isFinite(gDd)? gDd.toFixed(2):"NA"} • g ${Number.isFinite(g)? g.toFixed(2):"NA"}`),
+    metricCard("Regime", reg.regime, reg.why)
   ].join("");
-}
 
-/* -----------------------------
-   Macro (best-effort via Stooq CSV)
------------------------------- */
-async function stooqPct1d(symbol){
-  const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(symbol)}&i=d`;
-  const csv = await fetchText(url);
-  const lines = csv.trim().split("\n");
-  if(lines.length < 3) return NaN;
-  const last = lines[lines.length-1].split(",");
-  const prev = lines[lines.length-2].split(",");
-  const cLast = Number(last[4]); // Close
-  const cPrev = Number(prev[4]);
-  if(!(cLast>0 && cPrev>0)) return NaN;
-  return cLast/cPrev - 1;
-}
+  const sleeves = data?.sleeves || {};
+  const exp = data?.exposures || {};
+  const conc = data?.concentration || {};
+  const cryptoVol = safe(data?.crypto_sleeve?.vol_ann);
 
-/* -----------------------------
-   Render
------------------------------- */
-function renderSnapshot(s){
-  const btc = s.btc, eth = s.eth;
-  const snapRow = document.getElementById("snapshotRow");
-  snapRow.innerHTML = [
-    metricCard("BTC Spot", fmtUSD(btc.usd,0), `${fmtPct(btc.usd_24h_change/100,2)} (24h)`),
-    metricCard("BTC 7D", fmtPct(btc.usd_7d_change/100,2), ""),
-    metricCard("ETH Spot", fmtUSD(eth.usd,0), `${fmtPct(eth.usd_24h_change/100,2)} (24h)`),
-    metricCard("ETH 7D", fmtPct(eth.usd_7d_change/100,2), ""),
-    metricCard("Total Crypto Mkt Cap", fmtUSD(s.totalMcap,0), `${fmtPct(s.totalMcap24h/100,2)} (24h)`),
-  ].join("");
-}
-
-function renderPerpTable(btc, eth, btcOiPct, ethOiPct, btcBasisAnn, ethBasisAnn){
-  const wrap = document.getElementById("perpTableWrap");
-  wrap.innerHTML = `
+  document.getElementById("riskSleevesTable").innerHTML = `
     <table>
-      <thead>
-        <tr>
-          <th>Asset</th>
-          <th>Funding (ann.)</th>
-          <th>OI / MktCap</th>
-          <th>Basis (ann. proxy)</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Item</th><th>Value</th></tr></thead>
       <tbody>
-        <tr>
-          <td>BTC</td>
-          <td>${fmtPct(btc.fundingAnn,1)}</td>
-          <td>${fmtPct(btcOiPct,2)}</td>
-          <td>${fmtPct(btcBasisAnn,1)}</td>
-        </tr>
-        <tr>
-          <td>ETH</td>
-          <td>${fmtPct(eth.fundingAnn,1)}</td>
-          <td>${fmtPct(ethOiPct,2)}</td>
-          <td>${fmtPct(ethBasisAnn,1)}</td>
-        </tr>
+        <tr><td>Crypto Offense</td><td>${fmtPct(sleeves.crypto,1)}</td></tr>
+        <tr><td>Gold / Macro</td><td>${fmtPct(sleeves.gold,1)}</td></tr>
+        <tr><td>Hedge Sleeve</td><td>${fmtPct(sleeves.hedge,1)}</td></tr>
+        <tr><td>Cash / T-bills</td><td>${fmtPct(sleeves.cash,1)}</td></tr>
+        <tr><td>Crypto Sleeve Vol (ann.)</td><td>${fmtPct(cryptoVol,1)}</td></tr>
+        <tr><td>β to BTC (portfolio)</td><td>${(exp.beta_to_btc===null||exp.beta_to_btc===undefined) ? "NA" : fmtNum(exp.beta_to_btc,2)}</td></tr>
+        <tr><td>Net BTC Delta (hedge)</td><td>${(exp.net_btc_delta===null||exp.net_btc_delta===undefined) ? "n/a" : fmtNum(exp.net_btc_delta,2)}</td></tr>
+        <tr><td>Top 1 / Top 3 concentration</td><td>${fmtPct(conc.top1,1)} / ${fmtPct(conc.top3,1)}</td></tr>
       </tbody>
     </table>
   `;
-}
 
-function renderVol(rvBtc, ivBtc, rvEth, ivEth){
-  const row = document.getElementById("volRow");
-  row.innerHTML = [
-    metricCard("BTC 30D Realized Vol", fmtPct(rvBtc,1), ""),
-    metricCard("BTC 30D Implied Vol", fmtPct(ivBtc,1), ""),
-    metricCard("ETH 30D Realized Vol", fmtPct(rvEth,1), ""),
-    metricCard("ETH 30D Implied Vol", fmtPct(ivEth,1), ""),
-  ].join("");
-}
+  const hedge = data?.hedge || {};
+  const cost = safe(hedge.annual_cost);
+  const p40 = safe(hedge.payout_btc_m40);
+  const convex = (Number.isFinite(cost) && cost>0 && Number.isFinite(p40)) ? (p40/cost) : NaN;
 
-function renderStables(tot, usdt, usdc){
-  const row = document.getElementById("stableRow");
-  row.innerHTML = [
-    metricCard("Total Stable MCAP", fmtUSD(tot.last,0), ""),
-    metricCard("Δ 7D", fmtUSD(tot.d7,0), ""),
-    metricCard("USDT (Δ7D)", fmtUSD(usdt.last,0), fmtUSD(usdt.d7,0)),
-    metricCard("USDC (Δ7D)", fmtUSD(usdc.last,0), fmtUSD(usdc.d7,0)),
-  ].join("");
-}
+  document.getElementById("riskHedgeTable").innerHTML = `
+    <table>
+      <thead><tr><th>Item</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Annual hedge cost (drag)</td><td>${fmtPct(cost,2)}/yr</td></tr>
+        <tr><td>Payout @ BTC −30%</td><td>${fmtPct(safe(hedge.payout_btc_m30),1)}</td></tr>
+        <tr><td>Payout @ BTC −40%</td><td>${fmtPct(p40,1)}</td></tr>
+        <tr><td>Payout @ BTC −50%</td><td>${fmtPct(safe(hedge.payout_btc_m50),1)}</td></tr>
+        <tr><td>Convexity ratio (−40% / cost)</td><td>${Number.isFinite(convex) ? convex.toFixed(1)+"x" : "NA"}</td></tr>
+      </tbody>
+    </table>
+  `;
 
-function renderMacro(m){
-  const row = document.getElementById("macroRow");
-  row.innerHTML = [
-    metricCard("NASDAQ (QQQ)", "QQQ.US", fmtPct(m.qqq,2)),
-    metricCard("SPX (SPY)", "SPY.US", fmtPct(m.spy,2)),
-    metricCard("GOLD (GLD)", "GLD.US", fmtPct(m.gld,2)),
-    metricCard("DXY", "NA (proxy)", "NA"),
-  ].join("");
-}
+  const r = data?.regime || {};
+  document.getElementById("riskRegimeTable").innerHTML = `
+    <table>
+      <thead><tr><th>Indicator</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Funding (pctile)</td><td>${(r.funding_pctile===null||r.funding_pctile===undefined) ? "NA" : fmtPct(r.funding_pctile,0)}</td></tr>
+        <tr><td>Vol (pctile)</td><td>${(r.vol_pctile===null||r.vol_pctile===undefined) ? "NA" : fmtPct(r.vol_pctile,0)}</td></tr>
+        <tr><td>Extension (z-score)</td><td>${(r.extension_z===null||r.extension_z===undefined) ? "NA" : fmtNum(r.extension_z,2)}</td></tr>
+        <tr><td>ETF flow weekly</td><td>${(r.etf_flow_weekly===null||r.etf_flow_weekly===undefined) ? "NA" : fmtNum(r.etf_flow_weekly,0)}</td></tr>
+      </tbody>
+    </table>
+  `;
 
-function renderFlags(leftFlags, rightFlags){
-  document.getElementById("flagsLeft").innerHTML = leftFlags.join("");
-  document.getElementById("flagsRight").innerHTML = rightFlags.join("");
-}
-
-/* -----------------------------
-   Main refresh
------------------------------- */
-const CRYPTO_DAYS_PER_YEAR = 365;
-const RV_WINDOW_DAYS = 30;
-const CORR_WINDOW_DAYS = 180;
-
-async function refresh(){
-  let partial = false;
-  try{
-    // Snapshot
-    const snap = await getCoinGeckoSnapshot();
-    renderSnapshot(snap);
-
-    // ETF flows
-    let etf = { latest:NaN, sum5d:NaN, mtd:NaN, latestDate:null };
-    try{
-      const html = await fetchFarsideHTML();
-      const rows = extractFarsideTotals(html);
-      etf = computeETF(rows);
-      renderETF(etf);
-      document.getElementById("etfNote").textContent = "ETF flows source: Farside (via Cloudflare Worker proxy).";
-    }catch(e){
-      partial = true;
-      renderETF(etf);
-      document.getElementById("etfNote").textContent = "ETF flows unavailable (proxy/CORS/rate limit).";
-    }
-
-    // Spots (OKX -> CG fallback)
-    let btcSpot = await okxSpotLast("BTC-USDT").catch(()=>NaN);
-    let ethSpot = await okxSpotLast("ETH-USDT").catch(()=>NaN);
-    let btcSpotSrc = "OKX";
-    let ethSpotSrc = "OKX";
-    if(Number.isNaN(btcSpot)){ btcSpot = snap.btc.usd; btcSpotSrc = "CoinGecko"; }
-    if(Number.isNaN(ethSpot)){ ethSpot = snap.eth.usd; ethSpotSrc = "CoinGecko"; }
-
-    document.getElementById("spotBTC").textContent = fmtUSD(btcSpot,0);
-    document.getElementById("spotBTCsrc").textContent = `source: ${btcSpotSrc}`;
-    document.getElementById("spotETH").textContent = fmtUSD(ethSpot,0);
-    document.getElementById("spotETHsrc").textContent = `source: ${ethSpotSrc}`;
-
-    // Perps (OKX)
-    const [btcPerp, ethPerp] = await Promise.all([
-      okxPerp("BTC-USDT-SWAP").catch(()=>({fundingAnn:NaN, oiUsd:NaN, oiCcy:NaN, mark:NaN})),
-      okxPerp("ETH-USDT-SWAP").catch(()=>({fundingAnn:NaN, oiUsd:NaN, oiCcy:NaN, mark:NaN}))
-    ]);
-
-    // OI / MktCap (best effort)
-    const btcMcap = Number(snap.btc.usd_market_cap);
-    const ethMcap = Number(snap.eth.usd_market_cap);
-
-    function oiNotional(perp){
-      if(!Number.isNaN(perp.oiUsd)) return perp.oiUsd;
-      if(!Number.isNaN(perp.oiCcy) && !Number.isNaN(perp.mark)) return perp.oiCcy * perp.mark;
-      return NaN;
-    }
-    const btcOiNotional = oiNotional(btcPerp);
-    const ethOiNotional = oiNotional(ethPerp);
-    const btcOiPct = (btcOiNotional>0 && btcMcap>0) ? btcOiNotional/btcMcap : NaN;
-    const ethOiPct = (ethOiNotional>0 && ethMcap>0) ? ethOiNotional/ethMcap : NaN;
-
-    // Basis proxy: perp mark vs spot
-    const btcBasisAnn = (!Number.isNaN(btcPerp.mark) && btcSpot>0) ? ((btcPerp.mark/btcSpot)-1)*365 : NaN;
-    const ethBasisAnn = (!Number.isNaN(ethPerp.mark) && ethSpot>0) ? ((ethPerp.mark/ethSpot)-1)*365 : NaN;
-
-    renderPerpTable(btcPerp, ethPerp, btcOiPct, ethOiPct, btcBasisAnn, ethBasisAnn);
-
-    // Vol/corr (CoinGecko daily) + Deribit IV
-    const [btcDaily, ethDaily] = await Promise.all([
-      getCoinGeckoDaily("bitcoin", Math.max(220, CORR_WINDOW_DAYS+20)).catch(()=>({dates:[], prices:[]})),
-      getCoinGeckoDaily("ethereum", Math.max(220, CORR_WINDOW_DAYS+20)).catch(()=>({dates:[], prices:[]}))
-    ]);
-
-    const btcLR = logReturns(btcDaily.prices);
-    const ethLR = logReturns(ethDaily.prices);
-
-    const btcRV = realizedVolAnn(btcLR, RV_WINDOW_DAYS, CRYPTO_DAYS_PER_YEAR);
-    const ethRV = realizedVolAnn(ethLR, RV_WINDOW_DAYS, CRYPTO_DAYS_PER_YEAR);
-    const lastBtcRV = btcRV.length ? btcRV[btcRV.length-1] : NaN;
-    const lastEthRV = ethRV.length ? ethRV[ethRV.length-1] : NaN;
-
-    const [btcIV, ethIV] = await Promise.all([
-      deribitIV("BTC").catch(()=>NaN),
-      deribitIV("ETH").catch(()=>NaN)
-    ]);
-
-    renderVol(lastBtcRV, btcIV, lastEthRV, ethIV);
-
-    // Corr 180D
-    let corr = NaN;
-    if(btcLR.length && ethLR.length){
-      const n = Math.min(btcLR.length, ethLR.length);
-      const cArr = rollingCorr(btcLR.slice(-n), ethLR.slice(-n), CORR_WINDOW_DAYS);
-      corr = cArr.length ? cArr[cArr.length-1] : NaN;
-    }
-    document.getElementById("corrLine").textContent = `BTC/ETH 180D corr: ${Number.isNaN(corr) ? "NA" : corr.toFixed(2)}`;
-
-    // Stables
-    const [stTot, usdt, usdc] = await Promise.all([
-      llamaStablesTotal().catch(()=>({last:NaN,d7:NaN,d30:NaN})),
-      llamaStable("USDT").catch(()=>({last:NaN,d7:NaN})),
-      llamaStable("USDC").catch(()=>({last:NaN,d7:NaN}))
-    ]);
-    renderStables(stTot, usdt, usdc);
-
-    // Macro (best-effort)
-    const macro = {
-      qqq: await stooqPct1d("qqq.us").catch(()=>NaN),
-      spy: await stooqPct1d("spy.us").catch(()=>NaN),
-      gld: await stooqPct1d("gld.us").catch(()=>NaN),
-    };
-    renderMacro(macro);
-
-    // Flags
-    const leftFlags = [];
-    const rightFlags = [];
-
-    // Funding
-    {
-      const [lvl, det] = ragFunding(btcPerp.fundingAnn);
-      leftFlags.push(flagRow("BTC Funding", lvl, det));
-    }
-    {
-      const [lvl, det] = ragFunding(ethPerp.fundingAnn);
-      leftFlags.push(flagRow("ETH Funding", lvl, det));
-    }
-
-    // OI / MktCap
-    {
-      const [lvl, det] = ragOI(btcOiPct);
-      leftFlags.push(flagRow("BTC OI / MktCap", lvl, det));
-    }
-    {
-      const [lvl, det] = ragOI(ethOiPct);
-      leftFlags.push(flagRow("ETH OI / MktCap", lvl, det));
-    }
-
-    // Basis
-    {
-      const [lvl, det] = ragBasis(btcBasisAnn);
-      leftFlags.push(flagRow("BTC Basis", lvl, det));
-    }
-    {
-      const [lvl, det] = ragBasis(ethBasisAnn);
-      leftFlags.push(flagRow("ETH Basis", lvl, det));
-    }
-
-    // RV vs IV
-    {
-      const [lvl, det] = ragRVIV(lastBtcRV, btcIV);
-      rightFlags.push(flagRow("BTC RV vs IV", lvl, det));
-    }
-    {
-      const [lvl, det] = ragRVIV(lastEthRV, ethIV);
-      rightFlags.push(flagRow("ETH RV vs IV", lvl, det));
-    }
-
-    // Stable supply
-    {
-      const [lvl, det] = ragStables(stTot.d30);
-      rightFlags.push(flagRow("Stablecoin Supply (30D)", lvl, det));
-    }
-
-    // Correlation
-    {
-      const [lvl, det] = ragCorr(corr);
-      rightFlags.push(flagRow("BTC/ETH Correlation (180D)", lvl, det));
-    }
-
-    // ETF flow (5D)
-    {
-      const [lvl, det] = ragETF(etf.sum5d);
-      rightFlags.push(flagRow("BTC ETF Flows (5D)", lvl, det));
-    }
-
-    renderFlags(leftFlags, rightFlags);
-    setLastUpdate(!partial);
-
-  }catch(e){
-    console.error(e);
-    setLastUpdate(false);
-    document.getElementById("flagsLeft").innerHTML = flagRow("Dashboard", "RED", `Error refreshing: ${String(e)}`);
+  const actions = [];
+  if (Number.isFinite(g) && g < 1){
+    actions.push(flagRow("Risk Scale Active", "AMBER", `g = ${g.toFixed(2)} → scale risk sleeves down; cash rises as residual.`));
+  } else {
+    actions.push(flagRow("Risk Scale", "GREEN", "g = 1.00 (no governor constraint)"));
   }
-}
 
-/* -----------------------------
-   UI actions
------------------------------- */
-document.getElementById("refreshBtn").addEventListener("click", () => refresh());
+  const regBadge = badgeForRegime(reg.regime);
+  actions.push(flagRow("Regime", regBadge, `${reg.regime} (${reg.why})`));
 
-document.getElementById("thresholdBtn").addEventListener("click", () => {
-  const t = loadThresholds();
-  const input = prompt(
-`Edit thresholds as JSON (numbers). Example:
-{
-  "FUNDING_CROWDED_LONG_ANN": 0.3,
-  "OI_MKTCAP_WARN": 0.02
-}
-`, JSON.stringify(t, null, 2));
-  if(!input) return;
-  try{
-    const parsed = JSON.parse(input);
-    saveThresholds({...t, ...parsed});
-    T = loadThresholds();
-    refresh();
-  }catch(e){
-    alert("Invalid JSON.");
+  if (reg.regime === "EUPHORIA"){
+    actions.push(flagRow("Hedge Action", "AMBER", "Add tactical puts (1–2m, 15–25% OTM) and/or increase collar intensity (sell more calls). Trim overheated alts first."));
   }
-});
+  if (reg.regime === "RISK-OFF"){
+    actions.push(flagRow("Hedge Action", "AMBER", "Keep baseline tail puts; reduce alt beta; tighten liquidity caps; avoid leverage adds."));
+  }
+  if (reg.regime === "PANIC"){
+    actions.push(flagRow("Hedge Action", "RED", "Take partial profits on hedges into cash; rotate redeploy into BTC/ETH selectively; rebuild long-dated protection after vol normalizes."));
+  }
+  if (reg.regime === "NORMAL"){
+    actions.push(flagRow("Hedge Action", "GREEN", "Maintain baseline tail protection; keep hedge drag within ~1.5–3%/yr."));
+  }
 
-/* -----------------------------
-   Auto-refresh
------------------------------- */
-refresh();
-setInterval(refresh, 60_000); // refresh every 60s
+  document.getElementById("riskActions").innerHTML = actions.join("");
+}
+
+const RISK_JSON_KEY = "risk_snapshot_json";
+const RISK_ENDPOINT_KEY = "risk_snapshot_endpoint";
+function loadRiskEndpoint(){ return localStorage.getItem(RISK_ENDPOINT_KEY) || ""; }
+function saveRiskEndpoint(url){ localStorage.setItem(RISK_ENDPOINT_KEY, url); }
+function loadRiskJsonRaw(){ return localStorage.getItem(RISK_JSON_KEY) || ""; }
+function saveRiskJsonRaw(raw){ localStorage.setItem(RISK_JSON_KEY, raw); }
+
+const riskSample = {
+  "asof": "2026-01-28",
+  "nav_usd": 1000000,
+  "sleeves": { "crypto": 0.62, "gold": 0.08, "hedge": 0.08, "cash": 0.22 },
+  "crypto_sleeve": { "vol_ann": 0.78 },
+  "exposures": { "beta_to_btc": 0.92, "net_btc_delta": null },
+  "concentration": { "top1": 0.20, "top3": 0.48 },
+  "portfolio": { "vol_ann": 0.42, "vol_target_ann": 0.35, "drawdown": -0.12 },
+  "hedge": { "annual_cost": 0.02, "payout_btc_m30": 0.03, "payout_btc_m40": 0.06, "payout_btc_m50": 0.10 },
+  "regime": { "funding_pctile": 0.88, "vol_pctile": 0.24, "extension_z": 1.8, "etf_flow_weekly": 350 }
+};
+
+async function riskFetchFromEndpoint(){
+  const url = loadRiskEndpoint();
+  if(!url) throw new Error("No risk endpoint set.");
+  const js = await fetchJSON(url);
+  saveRiskJsonRaw(JSON.stringify(js, null, 2));
+  document.getElementById("riskJsonBox").value = JSON.stringify(js, null, 2);
+  renderRiskPanel(js);
+}
+function riskRenderFromTextarea(){
+  const raw = document.getElementById("riskJsonBox").value.trim();
+  const js = JSON.parse(raw);
+  renderRiskPanel(js);
+}
+
+function initRiskPanel(){
+  const endpointEl = document.getElementById("riskEndpoint");
+  endpointEl.value = loadRiskEndpoint();
+
+  const saved = loadRiskJsonRaw();
+  if(saved){
+    document.getElementById("riskJsonBox").value = saved;
+    try { renderRiskPanel(JSON.parse(saved)); } catch(e){}
+  } else {
+    document.getElementById("riskJsonBox").value = JSON.stringify(riskSample, null, 2);
+    renderRiskPanel(riskSample);
+  }
+
+  document.getElementById("riskSaveEndpointBtn").addEventListener("click", () => {
+    const v = endpointEl.value.trim();
+    saveRiskEndpoint(v);
+    alert("Saved risk endpoint.");
+  });
+
+  document.getElementById("riskFetchBtn").addEventListener("click", async () => {
+    try { await riskFetchFromEndpoint(); }
+    catch(e){ alert("Fetch failed: " + e.message); }
+  });
+
+  document.getElementById("riskLoadSampleBtn").addEventListener("click", () => {
+    document.getElementById("riskJsonBox").value = JSON.stringify(riskSample, null, 2);
+  });
+
+  document.getElementById("riskSaveJsonBtn").addEventListener("click", () => {
+    const raw = document.getElementById("riskJsonBox").value.trim();
+    saveRiskJsonRaw(raw);
+    alert("Saved risk JSON snapshot.");
+  });
+
+  document.getElementById("riskRenderBtn").addEventListener("click", () => {
+    try { riskRenderFromTextarea(); }
+    catch(e){ alert("Invalid JSON: " + e.message); }
+  });
+
+  // AUTO-REFRESH every 60s if an endpoint is set
+  setInterval(() => {
+    const ep = loadRiskEndpoint();
+    if(ep) riskFetchFromEndpoint().catch(()=>{});
+  }, 60_000);
+}
 </script>
-</body>
-</html>
+
