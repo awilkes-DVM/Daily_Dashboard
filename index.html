@@ -98,7 +98,22 @@ document.getElementById("riskFetchBtn").onclick=fetchRisk;
 document.getElementById("riskRenderBtn").onclick=()=>renderRisk(JSON.parse(document.getElementById("riskJsonBox").value));
 
 if(localStorage.getItem("riskEP")) fetchRisk();
-setInterval(fetchRisk,60000);
+async function safeFetchRisk(){
+  try{
+    const ep = localStorage.getItem("riskEP") || document.getElementById("riskEndpoint")?.value?.trim();
+    if(!ep) return; // don’t crash the page
+    const r = await fetch(ep + (ep.includes("?") ? "&" : "?") + "t=" + Date.now()); // cache-bust
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const js = await r.json();
+    renderRisk(js);
+  }catch(e){
+    console.log("Risk fetch failed:", e);
+  }
+}
+
+setInterval(safeFetchRisk, 60_000);
+safeFetchRisk();
+
 </script>
 </body>
 </html>
