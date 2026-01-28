@@ -23,13 +23,14 @@ border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:14px;
 .cols2{grid-template-columns:repeat(2,1fr)}
 .metric-label{font-size:12px;color:var(--muted)}
 .metric-val{font-size:20px;font-family:var(--mono)}
-.flag{border:1px solid var(--line);border-radius:12px;padding:8px;margin-bottom:6px;background:#0b1220}
-.badge{padding:4px 8px;border-radius:999px;font-size:11px}
-.badge.green{color:var(--green)} .badge.amber{color:var(--amber)} .badge.red{color:var(--red)}
 textarea,input{width:100%;background:#0b1220;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px}
 .btn{background:#0b1220;border:1px solid var(--line);color:white;padding:8px;border-radius:10px;cursor:pointer}
 .divider{height:1px;background:var(--line);margin:12px 0}
 .small{font-size:12px;color:var(--muted)}
+@media (max-width: 980px){
+  .cols4{grid-template-columns:repeat(2,1fr)}
+  .cols2{grid-template-columns:1fr}
+}
 </style>
 </head>
 
@@ -40,69 +41,109 @@ textarea,input{width:100%;background:#0b1220;color:var(--text);border:1px solid 
 
 <!-- ===================== FAT TAIL RISK PANEL ===================== -->
 <div class="card">
-<div class="section-title">Portfolio Risk (Fat Tail Aware)</div>
-<div class="divider"></div>
+  <div class="section-title">Portfolio Risk (Fat Tail Aware)</div>
+  <div class="divider"></div>
 
-<div class="row cols4" id="riskTopRow"></div>
+  <div class="row cols4" id="riskTopRow"></div>
 
-<div class="divider"></div>
+  <div class="divider"></div>
 
-<div class="row cols2">
-<div class="card"><div class="section-title">Sleeves</div><div id="riskSleevesTable"></div></div>
-<div class="card"><div class="section-title">Hedge Health</div><div id="riskHedgeTable"></div></div>
-</div>
+  <div class="row cols2">
+    <div class="card" style="background:#0b1220;">
+      <div class="section-title">Sleeves</div>
+      <div id="riskSleevesTable"></div>
+    </div>
+    <div class="card" style="background:#0b1220;">
+      <div class="section-title">Hedge Health</div>
+      <div id="riskHedgeTable"></div>
+    </div>
+  </div>
 
-<div class="divider"></div>
+  <div class="divider"></div>
 
-<div class="row cols2">
-<div class="card">
-<div class="section-title">Risk Data Source</div>
-<input id="riskEndpoint" placeholder="https://awilkes-dvm.github.io/Daily_Dashboard/risk.json"/>
-<button class="btn" id="riskSaveEndpointBtn">Save endpoint</button>
-<button class="btn" id="riskFetchBtn">Fetch now</button>
-</div>
+  <div class="row cols2">
+    <div class="card" style="background:#0b1220;">
+      <div class="section-title">Risk Data Source</div>
+      <input id="riskEndpoint"/>
+      <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+        <button class="btn" id="riskSaveEndpointBtn">Save endpoint</button>
+        <button class="btn" id="riskFetchBtn">Fetch now</button>
+      </div>
+      <div class="small" style="margin-top:8px;">Tip: this should point to your published <span style="font-family:var(--mono)">risk.json</span></div>
+    </div>
 
-<div class="card">
-<div class="section-title">Manual JSON</div>
-<textarea id="riskJsonBox"></textarea>
-<button class="btn" id="riskRenderBtn">Render</button>
-</div>
-</div>
+    <div class="card" style="background:#0b1220;">
+      <div class="section-title">Manual JSON</div>
+      <textarea id="riskJsonBox" placeholder='Paste JSON here, then click Render'></textarea>
+      <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+        <button class="btn" id="riskRenderBtn">Render</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 </div>
 
 <script>
-function fmtPct(x){return (x*100).toFixed(1)+"%"}
-function metricCard(label,val,sub){return `<div class="card"><div class="metric-label">${label}</div><div class="metric-val">${val}</div><div class="small">${sub||""}</div></div>`}
-
-function renderRisk(data){
-document.getElementById("riskTopRow").innerHTML =
-metricCard("NAV","$"+data.nav_usd,"as of "+data.asof)+
-metricCard("Portfolio Vol",fmtPct(data.portfolio.vol_ann),"target "+fmtPct(data.portfolio.vol_target_ann))+
-metricCard("Drawdown",fmtPct(data.portfolio.drawdown))+
-metricCard("Regime","Auto");
-
-document.getElementById("riskSleevesTable").innerHTML =
-`Crypto ${fmtPct(data.sleeves.crypto)}<br>Gold ${fmtPct(data.sleeves.gold)}<br>Hedge ${fmtPct(data.sleeves.hedge)}<br>Cash ${fmtPct(data.sleeves.cash)}`;
-
-document.getElementById("riskHedgeTable").innerHTML =
-`Annual cost ${fmtPct(data.hedge.annual_cost)}<br>Payout -40% ${fmtPct(data.hedge.payout_btc_m40)}`;
+function fmtPct(x){
+  if(x === null || x === undefined || Number.isNaN(Number(x))) return "NA";
+  return (Number(x)*100).toFixed(1)+"%";
+}
+function metricCard(label,val,sub){
+  return `<div class="card" style="background:#0b1220;">
+    <div class="metric-label">${label}</div>
+    <div class="metric-val">${val}</div>
+    <div class="small">${sub||""}</div>
+  </div>`;
 }
 
-function saveEndpoint(){localStorage.setItem("riskEP",document.getElementById("riskEndpoint").value)}
-async function fetchRisk(){const r=await fetch(localStorage.getItem("riskEP"));renderRisk(await r.json())}
+function renderRisk(data){
+  // Guard missing structure
+  if(!data || !data.portfolio || !data.sleeves || !data.hedge){
+    document.getElementById("riskTopRow").innerHTML = metricCard("Risk", "NA", "Invalid risk.json shape");
+    return;
+  }
 
-document.getElementById("riskSaveEndpointBtn").onclick=saveEndpoint;
-document.getElementById("riskFetchBtn").onclick=fetchRisk;
-document.getElementById("riskRenderBtn").onclick=()=>renderRisk(JSON.parse(document.getElementById("riskJsonBox").value));
+  document.getElementById("riskTopRow").innerHTML =
+    metricCard("NAV", data.nav_usd ? "$"+Number(data.nav_usd).toLocaleString() : "NA", "as of "+(data.asof||"—")) +
+    metricCard("Portfolio Vol", fmtPct(data.portfolio.vol_ann), "target "+fmtPct(data.portfolio.vol_target_ann)) +
+    metricCard("Drawdown", fmtPct(data.portfolio.drawdown), "") +
+    metricCard("Regime", (data.regime && data.regime.label) ? data.regime.label : "Auto", "");
 
-if(localStorage.getItem("riskEP")) fetchRisk();
+  document.getElementById("riskSleevesTable").innerHTML =
+    `Crypto ${fmtPct(data.sleeves.crypto)}<br>
+     Gold ${fmtPct(data.sleeves.gold)}<br>
+     Hedge ${fmtPct(data.sleeves.hedge)}<br>
+     Cash ${fmtPct(data.sleeves.cash)}`;
+
+  document.getElementById("riskHedgeTable").innerHTML =
+    `Annual cost ${fmtPct(data.hedge.annual_cost)}<br>
+     Payout -40% ${fmtPct(data.hedge.payout_btc_m40)}`;
+}
+
+const RISK_EP_KEY = "riskEP";
+
+function defaultRiskEndpoint(){
+  // points to risk.json on the same GitHub Pages site
+  return new URL("risk.json", window.location.href).toString();
+}
+
+function loadEndpoint(){
+  return localStorage.getItem(RISK_EP_KEY) || defaultRiskEndpoint();
+}
+function saveEndpoint(){
+  const v = document.getElementById("riskEndpoint").value.trim();
+  if(!v) return alert("Endpoint is empty.");
+  localStorage.setItem(RISK_EP_KEY, v);
+  alert("Saved.");
+}
+
 async function safeFetchRisk(){
   try{
-    const ep = localStorage.getItem("riskEP") || document.getElementById("riskEndpoint")?.value?.trim();
-    if(!ep) return; // don’t crash the page
-    const r = await fetch(ep + (ep.includes("?") ? "&" : "?") + "t=" + Date.now()); // cache-bust
+    const ep = loadEndpoint();
+    if(!ep) return;
+    const url = ep + (ep.includes("?") ? "&" : "?") + "t=" + Date.now(); // cache-bust
+    const r = await fetch(url);
     if(!r.ok) throw new Error("HTTP " + r.status);
     const js = await r.json();
     renderRisk(js);
@@ -111,9 +152,23 @@ async function safeFetchRisk(){
   }
 }
 
-setInterval(safeFetchRisk, 60_000);
-safeFetchRisk();
+document.getElementById("riskEndpoint").value = loadEndpoint();
 
+document.getElementById("riskSaveEndpointBtn").onclick = saveEndpoint;
+document.getElementById("riskFetchBtn").onclick = safeFetchRisk;
+
+document.getElementById("riskRenderBtn").onclick = () => {
+  try{
+    const raw = document.getElementById("riskJsonBox").value.trim();
+    renderRisk(JSON.parse(raw));
+  }catch(e){
+    alert("Invalid JSON: " + e.message);
+  }
+};
+
+// initial load + auto-refresh
+safeFetchRisk();
+setInterval(safeFetchRisk, 60_000);
 </script>
 </body>
 </html>
