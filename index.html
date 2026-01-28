@@ -1,321 +1,104 @@
-<!-- ==============================
-     Portfolio Risk (Fat Tail Aware)
-     Drop-in section + JS helpers
-     ============================== -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>BTC/ETH Daily Drivers Dashboard</title>
 
-<!-- Add this HTML block where you want the risk panel to appear -->
+<style>
+:root{
+--bg:#0b0f14; --panel:#111824; --panel2:#0f1622; --text:#e7eef9;
+--muted:#9bb0c7; --green:#2dd4bf; --amber:#fbbf24; --red:#fb7185;
+--line:#1f2a3a; --chip:#0b1220;
+--mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+--sans: ui-sans-serif, system-ui;
+}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+.wrap{max-width:1200px;margin:0 auto;padding:18px;}
+.card{background:linear-gradient(180deg,var(--panel),var(--panel2));
+border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:14px;}
+.section-title{font-size:14px;margin-bottom:10px}
+.row{display:grid;gap:12px}
+.cols4{grid-template-columns:repeat(4,1fr)}
+.cols2{grid-template-columns:repeat(2,1fr)}
+.metric-label{font-size:12px;color:var(--muted)}
+.metric-val{font-size:20px;font-family:var(--mono)}
+.flag{border:1px solid var(--line);border-radius:12px;padding:8px;margin-bottom:6px;background:#0b1220}
+.badge{padding:4px 8px;border-radius:999px;font-size:11px}
+.badge.green{color:var(--green)} .badge.amber{color:var(--amber)} .badge.red{color:var(--red)}
+textarea,input{width:100%;background:#0b1220;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px}
+.btn{background:#0b1220;border:1px solid var(--line);color:white;padding:8px;border-radius:10px;cursor:pointer}
+.divider{height:1px;background:var(--line);margin:12px 0}
+.small{font-size:12px;color:var(--muted)}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+<h1>BTC/ETH Daily Drivers Dashboard</h1>
+
+<!-- ===================== FAT TAIL RISK PANEL ===================== -->
 <div class="card">
-  <div class="section-title">Portfolio Risk (Fat Tail Aware)</div>
-  <div class="small">Sleeves • Vol/DD governors • Hedge convexity • Regime state</div>
-  <div class="divider"></div>
+<div class="section-title">Portfolio Risk (Fat Tail Aware)</div>
+<div class="divider"></div>
 
-  <!-- Top tiles -->
-  <div class="row cols4" id="riskTopRow"></div>
+<div class="row cols4" id="riskTopRow"></div>
 
-  <div class="divider"></div>
+<div class="divider"></div>
 
-  <!-- Sleeves + Hedge health -->
-  <div class="row cols2">
-    <div class="card" style="background:#0b1220;">
-      <div class="section-title">Sleeves & Exposures</div>
-      <div id="riskSleevesTable"></div>
-      <div class="note">Crypto sizing engine still applies inside the crypto sleeve. These controls operate at total NAV.</div>
-    </div>
-
-    <div class="card" style="background:#0b1220;">
-      <div class="section-title">Hedge Health</div>
-      <div id="riskHedgeTable"></div>
-      <div class="note">Convexity ratio = Payout(-40% BTC) ÷ Annual hedge cost. Aim high without bleeding out.</div>
-    </div>
-  </div>
-
-  <div class="divider"></div>
-
-  <!-- Regime + Actions -->
-  <div class="row cols2">
-    <div class="card" style="background:#0b1220;">
-      <div class="section-title">Regime Inputs</div>
-      <div id="riskRegimeTable"></div>
-      <div class="note">If you don’t have a field yet, leave it null; regime logic ignores missing inputs.</div>
-    </div>
-
-    <div class="card" style="background:#0b1220;">
-      <div class="section-title">Actions (auto)</div>
-      <div class="flags" id="riskActions"></div>
-      <div class="note">Euphoria → add tactical puts / increase collars. Panic → take profits on hedges, redeploy into core.</div>
-    </div>
-  </div>
-
-  <div class="divider"></div>
-
-  <!-- Config / Input -->
-  <div class="row cols2">
-    <div class="card" style="background:#0b1220;">
-      <div class="section-title">Risk Data Source</div>
-      <div class="small mono">Set a URL to auto-fetch JSON, or use manual JSON below.</div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
-        <input id="riskEndpoint" class="chip mono" style="min-width:320px; flex:1;"
-               placeholder="https://your-endpoint.example/risk.json (optional)" />
-        <button class="btn" id="riskSaveEndpointBtn">Save endpoint</button>
-        <button class="btn" id="riskFetchBtn">Fetch now</button>
-      </div>
-      <div class="note">Endpoint must return JSON and allow CORS. Cloudflare Worker is ideal.</div>
-    </div>
-
-    <div class="card" style="background:#0b1220;">
-      <div class="section-title">Manual Risk Snapshot (JSON)</div>
-      <div class="small">Paste snapshot → Save → Render.</div>
-      <textarea id="riskJsonBox" class="mono" style="width:100%; min-height:160px; margin-top:10px; border:1px solid var(--line); border-radius:12px; background:#0b1220; color:var(--text); padding:10px;"></textarea>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
-        <button class="btn" id="riskLoadSampleBtn">Load sample</button>
-        <button class="btn" id="riskSaveJsonBtn">Save</button>
-        <button class="btn" id="riskRenderBtn">Render</button>
-      </div>
-    </div>
-  </div>
+<div class="row cols2">
+<div class="card"><div class="section-title">Sleeves</div><div id="riskSleevesTable"></div></div>
+<div class="card"><div class="section-title">Hedge Health</div><div id="riskHedgeTable"></div></div>
 </div>
 
-<!-- ==============================
-     JS: Risk panel helpers
-     Put this inside your existing <script> block.
-     Requires your existing helpers:
-       metricCard(), flagRow(), fmtUSD(), fmtPct(), fetchJSON()
-     ============================== -->
+<div class="divider"></div>
+
+<div class="row cols2">
+<div class="card">
+<div class="section-title">Risk Data Source</div>
+<input id="riskEndpoint" placeholder="https://awilkes-dvm.github.io/Daily_Dashboard/risk.json"/>
+<button class="btn" id="riskSaveEndpointBtn">Save endpoint</button>
+<button class="btn" id="riskFetchBtn">Fetch now</button>
+</div>
+
+<div class="card">
+<div class="section-title">Manual JSON</div>
+<textarea id="riskJsonBox"></textarea>
+<button class="btn" id="riskRenderBtn">Render</button>
+</div>
+</div>
+</div>
+
+</div>
+
 <script>
-function fmtNum(x, decimals=2){
-  if(x === null || x === undefined || Number.isNaN(x)) return "NA";
-  return Number(x).toFixed(decimals);
-}
-function safe(x){ return (x === null || x === undefined) ? NaN : Number(x); }
+function fmtPct(x){return (x*100).toFixed(1)+"%"}
+function metricCard(label,val,sub){return `<div class="card"><div class="metric-label">${label}</div><div class="metric-val">${val}</div><div class="small">${sub||""}</div></div>`}
 
-function computeGVol(portVol, targetVol){
-  if(!(portVol>0) || !(targetVol>0)) return NaN;
-  return Math.min(1, targetVol / portVol);
-}
+function renderRisk(data){
+document.getElementById("riskTopRow").innerHTML =
+metricCard("NAV","$"+data.nav_usd,"as of "+data.asof)+
+metricCard("Portfolio Vol",fmtPct(data.portfolio.vol_ann),"target "+fmtPct(data.portfolio.vol_target_ann))+
+metricCard("Drawdown",fmtPct(data.portfolio.drawdown))+
+metricCard("Regime","Auto");
 
-function computeGDd(dd){
-  if(dd === null || dd === undefined || Number.isNaN(dd)) return NaN;
-  const x = Math.abs(Number(dd));
-  if(x >= 0.30) return 0.40;
-  if(x >= 0.20) return 0.60;
-  if(x >= 0.10) return 0.80;
-  return 1.00;
+document.getElementById("riskSleevesTable").innerHTML =
+`Crypto ${fmtPct(data.sleeves.crypto)}<br>Gold ${fmtPct(data.sleeves.gold)}<br>Hedge ${fmtPct(data.sleeves.hedge)}<br>Cash ${fmtPct(data.sleeves.cash)}`;
+
+document.getElementById("riskHedgeTable").innerHTML =
+`Annual cost ${fmtPct(data.hedge.annual_cost)}<br>Payout -40% ${fmtPct(data.hedge.payout_btc_m40)}`;
 }
 
-function computeRiskRegime(ind){
-  const f = ind.funding_pctile;
-  const v = ind.vol_pctile;
-  const z = ind.extension_z;
-  const flowW = ind.etf_flow_weekly;
+function saveEndpoint(){localStorage.setItem("riskEP",document.getElementById("riskEndpoint").value)}
+async function fetchRisk(){const r=await fetch(localStorage.getItem("riskEP"));renderRisk(await r.json())}
 
-  let score = 0;
-  let why = [];
+document.getElementById("riskSaveEndpointBtn").onclick=saveEndpoint;
+document.getElementById("riskFetchBtn").onclick=fetchRisk;
+document.getElementById("riskRenderBtn").onclick=()=>renderRisk(JSON.parse(document.getElementById("riskJsonBox").value));
 
-  if (Number.isFinite(f) && f > 0.85) { score += 2; why.push("funding high"); }
-  if (Number.isFinite(v) && v < 0.30) { score += 1; why.push("vol low"); }
-  if (Number.isFinite(z) && z > 1.5) { score += 1; why.push("price extended"); }
-  if (Number.isFinite(flowW) && flowW > 0) { score += 0.5; why.push("flows positive"); }
-
-  if (Number.isFinite(v) && v > 0.80) { score -= 2; why.push("vol high"); }
-  if (Number.isFinite(z) && z < -1.5) { score -= 1; why.push("price dislocated"); }
-  if (Number.isFinite(flowW) && flowW < 0) { score -= 0.5; why.push("flows negative"); }
-
-  let regime = "NORMAL";
-  if (score >= 3) regime = "EUPHORIA";
-  else if (score >= 1.5) regime = "RISK-ON";
-  else if (score <= -2.5) regime = "PANIC";
-  else if (score <= -1.0) regime = "RISK-OFF";
-
-  return { regime, why: why.length ? why.join(", ") : "insufficient indicators" };
-}
-function badgeForRegime(regime){
-  if (regime === "PANIC") return "RED";
-  if (regime === "EUPHORIA") return "AMBER";
-  if (regime === "RISK-OFF") return "AMBER";
-  return "GREEN";
-}
-
-function renderRiskPanel(data){
-  const portVol = safe(data?.portfolio?.vol_ann);
-  const volTgt  = safe(data?.portfolio?.vol_target_ann);
-  const dd      = safe(data?.portfolio?.drawdown);
-
-  const gVol = computeGVol(portVol, volTgt);
-  const gDd  = computeGDd(dd);
-  const g    = (Number.isFinite(gVol) && Number.isFinite(gDd)) ? Math.min(gVol, gDd) : NaN;
-
-  const reg = computeRiskRegime({
-    funding_pctile: safe(data?.regime?.funding_pctile),
-    vol_pctile: safe(data?.regime?.vol_pctile),
-    extension_z: safe(data?.regime?.extension_z),
-    etf_flow_weekly: safe(data?.regime?.etf_flow_weekly)
-  });
-
-  const nav = safe(data?.nav_usd);
-  const asof = data?.asof ? String(data.asof) : "—";
-  const top = document.getElementById("riskTopRow");
-  top.innerHTML = [
-    metricCard("Total NAV", Number.isFinite(nav) ? fmtUSD(nav,0) : "NA", `as of ${asof}`),
-    metricCard("Portfolio Vol (ann.)", fmtPct(portVol,1), `target ${fmtPct(volTgt,1)} • g_vol ${Number.isFinite(gVol)? gVol.toFixed(2):"NA"}`),
-    metricCard("Drawdown (P→T)", fmtPct(dd,1), `g_dd ${Number.isFinite(gDd)? gDd.toFixed(2):"NA"} • g ${Number.isFinite(g)? g.toFixed(2):"NA"}`),
-    metricCard("Regime", reg.regime, reg.why)
-  ].join("");
-
-  const sleeves = data?.sleeves || {};
-  const exp = data?.exposures || {};
-  const conc = data?.concentration || {};
-  const cryptoVol = safe(data?.crypto_sleeve?.vol_ann);
-
-  document.getElementById("riskSleevesTable").innerHTML = `
-    <table>
-      <thead><tr><th>Item</th><th>Value</th></tr></thead>
-      <tbody>
-        <tr><td>Crypto Offense</td><td>${fmtPct(sleeves.crypto,1)}</td></tr>
-        <tr><td>Gold / Macro</td><td>${fmtPct(sleeves.gold,1)}</td></tr>
-        <tr><td>Hedge Sleeve</td><td>${fmtPct(sleeves.hedge,1)}</td></tr>
-        <tr><td>Cash / T-bills</td><td>${fmtPct(sleeves.cash,1)}</td></tr>
-        <tr><td>Crypto Sleeve Vol (ann.)</td><td>${fmtPct(cryptoVol,1)}</td></tr>
-        <tr><td>β to BTC (portfolio)</td><td>${(exp.beta_to_btc===null||exp.beta_to_btc===undefined) ? "NA" : fmtNum(exp.beta_to_btc,2)}</td></tr>
-        <tr><td>Net BTC Delta (hedge)</td><td>${(exp.net_btc_delta===null||exp.net_btc_delta===undefined) ? "n/a" : fmtNum(exp.net_btc_delta,2)}</td></tr>
-        <tr><td>Top 1 / Top 3 concentration</td><td>${fmtPct(conc.top1,1)} / ${fmtPct(conc.top3,1)}</td></tr>
-      </tbody>
-    </table>
-  `;
-
-  const hedge = data?.hedge || {};
-  const cost = safe(hedge.annual_cost);
-  const p40 = safe(hedge.payout_btc_m40);
-  const convex = (Number.isFinite(cost) && cost>0 && Number.isFinite(p40)) ? (p40/cost) : NaN;
-
-  document.getElementById("riskHedgeTable").innerHTML = `
-    <table>
-      <thead><tr><th>Item</th><th>Value</th></tr></thead>
-      <tbody>
-        <tr><td>Annual hedge cost (drag)</td><td>${fmtPct(cost,2)}/yr</td></tr>
-        <tr><td>Payout @ BTC −30%</td><td>${fmtPct(safe(hedge.payout_btc_m30),1)}</td></tr>
-        <tr><td>Payout @ BTC −40%</td><td>${fmtPct(p40,1)}</td></tr>
-        <tr><td>Payout @ BTC −50%</td><td>${fmtPct(safe(hedge.payout_btc_m50),1)}</td></tr>
-        <tr><td>Convexity ratio (−40% / cost)</td><td>${Number.isFinite(convex) ? convex.toFixed(1)+"x" : "NA"}</td></tr>
-      </tbody>
-    </table>
-  `;
-
-  const r = data?.regime || {};
-  document.getElementById("riskRegimeTable").innerHTML = `
-    <table>
-      <thead><tr><th>Indicator</th><th>Value</th></tr></thead>
-      <tbody>
-        <tr><td>Funding (pctile)</td><td>${(r.funding_pctile===null||r.funding_pctile===undefined) ? "NA" : fmtPct(r.funding_pctile,0)}</td></tr>
-        <tr><td>Vol (pctile)</td><td>${(r.vol_pctile===null||r.vol_pctile===undefined) ? "NA" : fmtPct(r.vol_pctile,0)}</td></tr>
-        <tr><td>Extension (z-score)</td><td>${(r.extension_z===null||r.extension_z===undefined) ? "NA" : fmtNum(r.extension_z,2)}</td></tr>
-        <tr><td>ETF flow weekly</td><td>${(r.etf_flow_weekly===null||r.etf_flow_weekly===undefined) ? "NA" : fmtNum(r.etf_flow_weekly,0)}</td></tr>
-      </tbody>
-    </table>
-  `;
-
-  const actions = [];
-  if (Number.isFinite(g) && g < 1){
-    actions.push(flagRow("Risk Scale Active", "AMBER", `g = ${g.toFixed(2)} → scale risk sleeves down; cash rises as residual.`));
-  } else {
-    actions.push(flagRow("Risk Scale", "GREEN", "g = 1.00 (no governor constraint)"));
-  }
-
-  const regBadge = badgeForRegime(reg.regime);
-  actions.push(flagRow("Regime", regBadge, `${reg.regime} (${reg.why})`));
-
-  if (reg.regime === "EUPHORIA"){
-    actions.push(flagRow("Hedge Action", "AMBER", "Add tactical puts (1–2m, 15–25% OTM) and/or increase collar intensity (sell more calls). Trim overheated alts first."));
-  }
-  if (reg.regime === "RISK-OFF"){
-    actions.push(flagRow("Hedge Action", "AMBER", "Keep baseline tail puts; reduce alt beta; tighten liquidity caps; avoid leverage adds."));
-  }
-  if (reg.regime === "PANIC"){
-    actions.push(flagRow("Hedge Action", "RED", "Take partial profits on hedges into cash; rotate redeploy into BTC/ETH selectively; rebuild long-dated protection after vol normalizes."));
-  }
-  if (reg.regime === "NORMAL"){
-    actions.push(flagRow("Hedge Action", "GREEN", "Maintain baseline tail protection; keep hedge drag within ~1.5–3%/yr."));
-  }
-
-  document.getElementById("riskActions").innerHTML = actions.join("");
-}
-
-const RISK_JSON_KEY = "risk_snapshot_json";
-const RISK_ENDPOINT_KEY = "risk_snapshot_endpoint";
-function loadRiskEndpoint(){ return localStorage.getItem(RISK_ENDPOINT_KEY) || ""; }
-function saveRiskEndpoint(url){ localStorage.setItem(RISK_ENDPOINT_KEY, url); }
-function loadRiskJsonRaw(){ return localStorage.getItem(RISK_JSON_KEY) || ""; }
-function saveRiskJsonRaw(raw){ localStorage.setItem(RISK_JSON_KEY, raw); }
-
-const riskSample = {
-  "asof": "2026-01-28",
-  "nav_usd": 1000000,
-  "sleeves": { "crypto": 0.62, "gold": 0.08, "hedge": 0.08, "cash": 0.22 },
-  "crypto_sleeve": { "vol_ann": 0.78 },
-  "exposures": { "beta_to_btc": 0.92, "net_btc_delta": null },
-  "concentration": { "top1": 0.20, "top3": 0.48 },
-  "portfolio": { "vol_ann": 0.42, "vol_target_ann": 0.35, "drawdown": -0.12 },
-  "hedge": { "annual_cost": 0.02, "payout_btc_m30": 0.03, "payout_btc_m40": 0.06, "payout_btc_m50": 0.10 },
-  "regime": { "funding_pctile": 0.88, "vol_pctile": 0.24, "extension_z": 1.8, "etf_flow_weekly": 350 }
-};
-
-async function riskFetchFromEndpoint(){
-  const url = loadRiskEndpoint();
-  if(!url) throw new Error("No risk endpoint set.");
-  const js = await fetchJSON(url);
-  saveRiskJsonRaw(JSON.stringify(js, null, 2));
-  document.getElementById("riskJsonBox").value = JSON.stringify(js, null, 2);
-  renderRiskPanel(js);
-}
-function riskRenderFromTextarea(){
-  const raw = document.getElementById("riskJsonBox").value.trim();
-  const js = JSON.parse(raw);
-  renderRiskPanel(js);
-}
-
-function initRiskPanel(){
-  const endpointEl = document.getElementById("riskEndpoint");
-  endpointEl.value = loadRiskEndpoint();
-
-  const saved = loadRiskJsonRaw();
-  if(saved){
-    document.getElementById("riskJsonBox").value = saved;
-    try { renderRiskPanel(JSON.parse(saved)); } catch(e){}
-  } else {
-    document.getElementById("riskJsonBox").value = JSON.stringify(riskSample, null, 2);
-    renderRiskPanel(riskSample);
-  }
-
-  document.getElementById("riskSaveEndpointBtn").addEventListener("click", () => {
-    const v = endpointEl.value.trim();
-    saveRiskEndpoint(v);
-    alert("Saved risk endpoint.");
-  });
-
-  document.getElementById("riskFetchBtn").addEventListener("click", async () => {
-    try { await riskFetchFromEndpoint(); }
-    catch(e){ alert("Fetch failed: " + e.message); }
-  });
-
-  document.getElementById("riskLoadSampleBtn").addEventListener("click", () => {
-    document.getElementById("riskJsonBox").value = JSON.stringify(riskSample, null, 2);
-  });
-
-  document.getElementById("riskSaveJsonBtn").addEventListener("click", () => {
-    const raw = document.getElementById("riskJsonBox").value.trim();
-    saveRiskJsonRaw(raw);
-    alert("Saved risk JSON snapshot.");
-  });
-
-  document.getElementById("riskRenderBtn").addEventListener("click", () => {
-    try { riskRenderFromTextarea(); }
-    catch(e){ alert("Invalid JSON: " + e.message); }
-  });
-
-  // AUTO-REFRESH every 60s if an endpoint is set
-  setInterval(() => {
-    const ep = loadRiskEndpoint();
-    if(ep) riskFetchFromEndpoint().catch(()=>{});
-  }, 60_000);
-}
+if(localStorage.getItem("riskEP")) fetchRisk();
+setInterval(fetchRisk,60000);
 </script>
-
+</body>
+</html>
