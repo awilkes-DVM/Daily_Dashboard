@@ -1,11 +1,45 @@
 {
   "asof": "2026-01-28",
-  "nav_usd": 1000000,
-  "sleeves": { "crypto": 0.62, "gold": 0.08, "hedge": 0.08, "cash": 0.22 },
-  "crypto_sleeve": { "vol_ann": 0.78 },
-  "exposures": { "beta_to_btc": 0.92, "net_btc_delta": null },
-  "concentration": { "top1": 0.20, "top3": 0.48 },
-  "portfolio": { "vol_ann": 0.42, "vol_target_ann": 0.35, "drawdown": -0.12 },
-  "hedge": { "annual_cost": 0.02, "payout_btc_m30": 0.03, "payout_btc_m40": 0.06, "payout_btc_m50": 0.10 },
-  "regime": { "funding_pctile": 0.88, "vol_pctile": 0.24, "extension_z": 1.8, "etf_flow_weekly": 350 }
+  "nav_usd": 1250000,
+
+  "sleeves": {
+    "crypto": 0.60,
+    "gold": 0.08,
+    "hedge": 0.10,
+    "cash": 0.22
+  },
+
+  "crypto_sleeve": {
+    "vol_ann": 0.75
+  },
+
+  "exposures": {
+    "beta_to_btc": 0.95,
+    "net_btc_delta": null
+  },
+
+  "concentration": {
+    "top1": 0.18,
+    "top3": 0.45
+  },
+
+  "portfolio": {
+    "vol_ann": 0.42,
+    "vol_target_ann": 0.35,
+    "drawdown": -0.11
+  },
+
+  "hedge": {
+    "annual_cost": 0.02,
+    "payout_btc_m30": 0.04,
+    "payout_btc_m40": 0.08,
+    "payout_btc_m50": 0.14
+  },
+
+  "regime": {
+    "funding_pctile": 0.87,
+    "vol_pctile": 0.26,
+    "extension_z": 1.7,
+    "etf_flow_weekly": 320
+  }
 }
