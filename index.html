@@ -1,174 +1,687 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>BTC/ETH Daily Drivers Dashboard</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>BTC/ETH Daily Drivers + Risk Dashboard</title>
 
-<style>
-:root{
---bg:#0b0f14; --panel:#111824; --panel2:#0f1622; --text:#e7eef9;
---muted:#9bb0c7; --green:#2dd4bf; --amber:#fbbf24; --red:#fb7185;
---line:#1f2a3a; --chip:#0b1220;
---mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
---sans: ui-sans-serif, system-ui;
-}
-body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
-.wrap{max-width:1200px;margin:0 auto;padding:18px;}
-.card{background:linear-gradient(180deg,var(--panel),var(--panel2));
-border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:14px;}
-.section-title{font-size:14px;margin-bottom:10px}
-.row{display:grid;gap:12px}
-.cols4{grid-template-columns:repeat(4,1fr)}
-.cols2{grid-template-columns:repeat(2,1fr)}
-.metric-label{font-size:12px;color:var(--muted)}
-.metric-val{font-size:20px;font-family:var(--mono)}
-textarea,input{width:100%;background:#0b1220;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px}
-.btn{background:#0b1220;border:1px solid var(--line);color:white;padding:8px;border-radius:10px;cursor:pointer}
-.divider{height:1px;background:var(--line);margin:12px 0}
-.small{font-size:12px;color:var(--muted)}
-@media (max-width: 980px){
-  .cols4{grid-template-columns:repeat(2,1fr)}
-  .cols2{grid-template-columns:1fr}
-}
-</style>
+  <style>
+    :root{
+      --bg:#0b0f14; --panel:#111824; --panel2:#0f1622; --text:#e7eef9;
+      --muted:#9bb0c7; --green:#2dd4bf; --amber:#fbbf24; --red:#fb7185;
+      --line:#1f2a3a; --chip:#0b1220;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+    a{color:inherit;text-decoration:none}
+    .wrap{max-width:1200px;margin:0 auto;padding:18px 16px 28px;}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;}
+    .title{display:flex;flex-direction:column;gap:2px}
+    h1{margin:0;font-size:18px;letter-spacing:.2px;font-weight:700}
+    .sub{color:var(--muted);font-size:12px}
+    .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .btn{
+      border:1px solid var(--line); background:var(--panel); color:var(--text);
+      padding:8px 10px; border-radius:10px; font-size:12px; cursor:pointer;
+      box-shadow:none;
+    }
+    .btn:hover{border-color:#2a3a52}
+    .chip{background:var(--chip);border:1px solid var(--line);color:var(--muted);padding:6px 10px;border-radius:999px;font-size:12px}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;}
+    .card{
+      background:linear-gradient(180deg,var(--panel),var(--panel2));
+      border:1px solid var(--line);
+      border-radius:16px;
+      box-shadow:var(--shadow);
+      padding:14px;
+      min-height:90px;
+    }
+    .card h2{margin:0 0 10px 0;font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);font-weight:700}
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+    .kpi{padding:10px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.02)}
+    .kpi .label{font-size:11px;color:var(--muted)}
+    .kpi .val{font-size:18px;font-weight:800;margin-top:6px}
+    .kpi .chg{font-size:11px;margin-top:2px}
+    .pos{color:var(--green)} .neg{color:var(--red)} .warn{color:var(--amber)}
+    .span-12{grid-column:span 12}
+    .span-8{grid-column:span 8}
+    .span-6{grid-column:span 6}
+    .span-4{grid-column:span 4}
+    .span-3{grid-column:span 3}
+    .span-2{grid-column:span 2}
+
+    .table{width:100%;border-collapse:collapse;font-size:12px}
+    .table th,.table td{padding:8px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+    .table th{text-align:left;color:var(--muted);font-weight:700}
+    .muted{color:var(--muted)}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .right{margin-left:auto}
+    .small{font-size:12px}
+    .mono{font-family:var(--mono)}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.02);font-size:12px;color:var(--muted)}
+    .dot{width:8px;height:8px;border-radius:50%}
+    .dot.green{background:var(--green)} .dot.red{background:var(--red)} .dot.amber{background:var(--amber)}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .bar{height:10px;border-radius:999px;background:#0a101a;border:1px solid var(--line);overflow:hidden}
+    .bar > div{height:100%;background:linear-gradient(90deg,var(--green),var(--amber),var(--red))}
+    .footer{margin-top:12px;color:var(--muted);font-size:11px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+
+    /* modal */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px;z-index:999}
+    .modal{width:min(760px,100%);background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:14px}
+    .modal h3{margin:0 0 10px 0;font-size:14px}
+    .form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .field{display:flex;flex-direction:column;gap:6px}
+    .field label{font-size:11px;color:var(--muted)}
+    .field input,.field textarea{
+      width:100%;padding:10px;border-radius:12px;border:1px solid var(--line);
+      background:rgba(0,0,0,.25);color:var(--text);outline:none;font-family:var(--mono);font-size:12px
+    }
+    .field textarea{min-height:120px;resize:vertical}
+    .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:10px}
+    @media (max-width: 900px){
+      .kpis{grid-template-columns:repeat(2,1fr)}
+      .span-8,.span-6,.span-4,.span-3,.span-2{grid-column:span 12}
+      .split{grid-template-columns:1fr}
+      .form{grid-template-columns:1fr}
+    }
+  </style>
 </head>
 
 <body>
-<div class="wrap">
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <h1>Daily Drivers + Risk Dashboard</h1>
+        <div class="sub" id="asOf">As of —</div>
+      </div>
+      <div class="actions">
+        <span class="chip mono" id="status">idle</span>
+        <button class="btn" id="refreshBtn">Refresh</button>
+        <button class="btn" id="settingsBtn">Settings</button>
+      </div>
+    </header>
 
-<h1>BTC/ETH Daily Drivers Dashboard</h1>
+    <div class="grid">
+      <!-- PRICES / DRIVERS -->
+      <section class="card span-12">
+        <h2>Spot + Quick Drivers</h2>
+        <div class="kpis" id="priceKpis">
+          <div class="kpi">
+            <div class="label">BTC</div>
+            <div class="val mono" id="btcPx">—</div>
+            <div class="chg" id="btcChg">—</div>
+          </div>
+          <div class="kpi">
+            <div class="label">ETH</div>
+            <div class="val mono" id="ethPx">—</div>
+            <div class="chg" id="ethChg">—</div>
+          </div>
+          <div class="kpi">
+            <div class="label">BTC Dominance (manual)</div>
+            <div class="val mono" id="btcDom">—</div>
+            <div class="chg muted small">Edit in Settings</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Fear & Greed (optional)</div>
+            <div class="val mono" id="fg">—</div>
+            <div class="chg muted small">Alt.me endpoint</div>
+          </div>
+        </div>
 
-<!-- ===================== FAT TAIL RISK PANEL ===================== -->
-<div class="card">
-  <div class="section-title">Portfolio Risk (Fat Tail Aware)</div>
-  <div class="divider"></div>
+        <div style="margin-top:10px" class="split">
+          <div>
+            <div class="row">
+              <span class="pill"><span class="dot amber" id="regDot"></span><span id="regimeText">Regime: —</span></span>
+              <span class="pill"><span class="dot green"></span><span id="liqText">Liquidity: —</span></span>
+              <span class="pill"><span class="dot red"></span><span id="volText">Vol: —</span></span>
+              <span class="right muted small">These are placeholders you can wire to your own data feed.</span>
+            </div>
+            <div style="margin-top:10px" class="bar" title="Risk gauge (placeholder)">
+              <div id="riskBar" style="width:35%"></div>
+            </div>
+          </div>
 
-  <div class="row cols4" id="riskTopRow"></div>
+          <div>
+            <table class="table" id="moversTbl">
+              <thead>
+                <tr>
+                  <th>Theme</th>
+                  <th>What to watch</th>
+                  <th class="right">Impact</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Rates / USD</td>
+                  <td class="muted">DXY, real yields, Fed path</td>
+                  <td class="right warn">med</td>
+                </tr>
+                <tr>
+                  <td>Flows</td>
+                  <td class="muted">ETF net flows, stablecoin issuance</td>
+                  <td class="right warn">med</td>
+                </tr>
+                <tr>
+                  <td>Positioning</td>
+                  <td class="muted">Funding, basis, OI, liquidations</td>
+                  <td class="right neg">high</td>
+                </tr>
+                <tr>
+                  <td>Idiosyncratic</td>
+                  <td class="muted">Protocol news, hacks, unlocks, regs</td>
+                  <td class="right warn">med</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
-  <div class="divider"></div>
+      <!-- RISK (OLD STYLE) -->
+      <section class="card span-8">
+        <h2>Risk Snapshot</h2>
+        <table class="table mono">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Value</th>
+              <th>Limit</th>
+              <th class="right">Status</th>
+            </tr>
+          </thead>
+          <tbody id="riskTbl">
+            <tr>
+              <td>1D VaR</td>
+              <td id="varVal">—</td>
+              <td id="varLim">—</td>
+              <td class="right" id="varSt">—</td>
+            </tr>
+            <tr>
+              <td>1D CVaR</td>
+              <td id="cvarVal">—</td>
+              <td id="cvarLim">—</td>
+              <td class="right" id="cvarSt">—</td>
+            </tr>
+            <tr>
+              <td>Drawdown (DD%)</td>
+              <td id="ddVal">—</td>
+              <td id="ddLim">—</td>
+              <td class="right" id="ddSt">—</td>
+            </tr>
+            <tr>
+              <td>Concentration (top name)</td>
+              <td id="concVal">—</td>
+              <td id="concLim">—</td>
+              <td class="right" id="concSt">—</td>
+            </tr>
+            <tr>
+              <td>Stress loss (scenario)</td>
+              <td id="stressVal">—</td>
+              <td id="stressLim">—</td>
+              <td class="right" id="stressSt">—</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="footer">
+          <div>Tip: wire these to your internal JSON endpoint (see Settings).</div>
+          <div class="mono">Risk data source: <span id="riskSrc">local placeholders</span></div>
+        </div>
+      </section>
 
-  <div class="row cols2">
-    <div class="card" style="background:#0b1220;">
-      <div class="section-title">Sleeves</div>
-      <div id="riskSleevesTable"></div>
+      <section class="card span-4">
+        <h2>Exposure</h2>
+        <div class="kpi" style="margin-bottom:10px">
+          <div class="label">Net portfolio delta</div>
+          <div class="val mono" id="netDelta">—</div>
+          <div class="chg muted small">BTC-equivalent (placeholder)</div>
+        </div>
+        <div class="kpi" style="margin-bottom:10px">
+          <div class="label">Vega exposure</div>
+          <div class="val mono" id="vega">—</div>
+          <div class="chg muted small">per 1 vol point (placeholder)</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Key notes</div>
+          <div class="chg muted small" id="notes">
+            • If vol spikes / liquidity worsens: forced de-grossing regardless of PnL<br/>
+            • If concentration breaches due to price move: trim to limits<br/>
+            • At +3R: move to “runner only” / lock in floor
+          </div>
+        </div>
+      </section>
+
+      <!-- NEW: ETF FLOWS -->
+      <section class="card span-12">
+        <h2>ETF Net Flows (New)</h2>
+        <div class="row" style="margin-bottom:8px">
+          <span class="pill"><span class="dot green"></span><span id="flowsMode">Mode: —</span></span>
+          <span class="pill"><span class="dot amber"></span><span class="mono" id="flowsDate">Date: —</span></span>
+          <span class="right muted small">You can auto-fetch from a JSON URL, or paste flows manually (Settings).</span>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi">
+            <div class="label">BTC spot ETFs</div>
+            <div class="val mono" id="btcFlows">—</div>
+            <div class="chg muted small">USD, net</div>
+          </div>
+          <div class="kpi">
+            <div class="label">ETH spot ETFs</div>
+            <div class="val mono" id="ethFlows">—</div>
+            <div class="chg muted small">USD, net</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Total (BTC + ETH)</div>
+            <div class="val mono" id="totFlows">—</div>
+            <div class="chg muted small">USD, net</div>
+          </div>
+          <div class="kpi">
+            <div class="label">Flow impulse</div>
+            <div class="val mono" id="flowImp">—</div>
+            <div class="chg muted small">placeholder signal</div>
+          </div>
+        </div>
+
+        <div style="margin-top:10px">
+          <table class="table mono" id="flowsTbl">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th class="right">BTC</th>
+                <th class="right">ETH</th>
+                <th class="right">Total</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="footer">
+          <div>Expected JSON format: [{ "date":"YYYY-MM-DD", "btc":123456789, "eth":-12345 }...] (USD).</div>
+          <div class="mono">Flows source: <span id="flowsSrc">—</span></div>
+        </div>
+      </section>
     </div>
-    <div class="card" style="background:#0b1220;">
-      <div class="section-title">Hedge Health</div>
-      <div id="riskHedgeTable"></div>
+
+    <div class="footer">
+      <div>Auto-refresh: <span class="mono" id="autoRef">—</span></div>
+      <div class="mono">LocalStorage keys: dashboard.settings, dashboard.flows.manualCsv</div>
     </div>
   </div>
 
-  <div class="divider"></div>
-
-  <div class="row cols2">
-    <div class="card" style="background:#0b1220;">
-      <div class="section-title">Risk Data Source</div>
-      <input id="riskEndpoint"/>
-      <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
-        <button class="btn" id="riskSaveEndpointBtn">Save endpoint</button>
-        <button class="btn" id="riskFetchBtn">Fetch now</button>
+  <!-- SETTINGS MODAL -->
+  <div class="modal-backdrop" id="modal">
+    <div class="modal">
+      <div class="row">
+        <h3 style="margin:0">Dashboard Settings</h3>
+        <div class="right"></div>
       </div>
-      <div class="small" style="margin-top:8px;">Tip: this should point to your published <span style="font-family:var(--mono)">risk.json</span></div>
-    </div>
 
-    <div class="card" style="background:#0b1220;">
-      <div class="section-title">Manual JSON</div>
-      <textarea id="riskJsonBox" placeholder='Paste JSON here, then click Render'></textarea>
-      <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
-        <button class="btn" id="riskRenderBtn">Render</button>
+      <div class="form" style="margin-top:10px">
+        <div class="field">
+          <label>Refresh interval (seconds)</label>
+          <input id="setRefreshSec" type="number" min="10" step="5" placeholder="60"/>
+        </div>
+
+        <div class="field">
+          <label>CoinGecko base (leave default)</label>
+          <input id="setCg" type="text" placeholder="https://api.coingecko.com/api/v3"/>
+        </div>
+
+        <div class="field">
+          <label>Risk JSON URL (optional)</label>
+          <input id="setRiskUrl" type="text" placeholder="https://your-endpoint.example/risk.json"/>
+        </div>
+
+        <div class="field">
+          <label>ETF flows JSON URL (optional)</label>
+          <input id="setFlowsUrl" type="text" placeholder="https://your-endpoint.example/flows.json"/>
+        </div>
+
+        <div class="field">
+          <label>BTC dominance (manual)</label>
+          <input id="setBtcDom" type="text" placeholder="e.g. 54.2%"/>
+        </div>
+
+        <div class="field">
+          <label>Regime / Liquidity / Vol (manual)</label>
+          <input id="setRegime" type="text" placeholder="e.g. NORMAL / OK / ELEVATED"/>
+        </div>
+
+        <div class="field" style="grid-column:1/-1">
+          <label>Manual ETF flows (CSV). Format: date,btc,eth (USD). Most recent first is OK.</label>
+          <textarea id="setManualFlows" placeholder="2026-01-28,125000000,-12000000&#10;2026-01-27,-34000000,6000000"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" id="closeSettings">Close</button>
+        <button class="btn" id="saveSettings">Save</button>
+      </div>
+
+      <div class="muted small" style="margin-top:10px">
+        Notes:
+        <ul>
+          <li>Flows can come from your own Cloudflare Worker / GitHub raw JSON / any CORS-enabled URL.</li>
+          <li>If you don't have an ETF flow feed yet, paste daily totals in the CSV box and the dashboard will compute totals.</li>
+        </ul>
       </div>
     </div>
   </div>
-</div>
 
-</div>
+  <script>
+    // ---------- helpers ----------
+    const $ = (id) => document.getElementById(id);
+    const fmtUsd0 = (x) => (x === null || x === undefined || isNaN(x)) ? "—" :
+      new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(x);
+    const fmtUsd2 = (x) => (x === null || x === undefined || isNaN(x)) ? "—" :
+      new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:2}).format(x);
+    const fmtPct = (x) => (x === null || x === undefined || isNaN(x)) ? "—" :
+      new Intl.NumberFormat("en-US",{style:"percent",maximumFractionDigits:2}).format(x);
+    const clsChg = (x) => (x >= 0 ? "pos" : "neg");
+    const setStatus = (txt) => { $("status").textContent = txt; };
 
-<script>
-function fmtPct(x){
-  if(x === null || x === undefined || Number.isNaN(Number(x))) return "NA";
-  return (Number(x)*100).toFixed(1)+"%";
-}
-function metricCard(label,val,sub){
-  return `<div class="card" style="background:#0b1220;">
-    <div class="metric-label">${label}</div>
-    <div class="metric-val">${val}</div>
-    <div class="small">${sub||""}</div>
-  </div>`;
-}
+    function loadSettings(){
+      const d = {
+        refreshSec: 60,
+        coingeckoBase: "https://api.coingecko.com/api/v3",
+        riskUrl: "",
+        flowsUrl: "",
+        btcDom: "",
+        regime: "",
+      };
+      try{
+        const s = JSON.parse(localStorage.getItem("dashboard.settings") || "{}");
+        return {...d, ...s};
+      }catch(e){ return d; }
+    }
 
-function renderRisk(data){
-  // Guard missing structure
-  if(!data || !data.portfolio || !data.sleeves || !data.hedge){
-    document.getElementById("riskTopRow").innerHTML = metricCard("Risk", "NA", "Invalid risk.json shape");
-    return;
-  }
+    function saveSettings(s){
+      localStorage.setItem("dashboard.settings", JSON.stringify(s));
+    }
 
-  document.getElementById("riskTopRow").innerHTML =
-    metricCard("NAV", data.nav_usd ? "$"+Number(data.nav_usd).toLocaleString() : "NA", "as of "+(data.asof||"—")) +
-    metricCard("Portfolio Vol", fmtPct(data.portfolio.vol_ann), "target "+fmtPct(data.portfolio.vol_target_ann)) +
-    metricCard("Drawdown", fmtPct(data.portfolio.drawdown), "") +
-    metricCard("Regime", (data.regime && data.regime.label) ? data.regime.label : "Auto", "");
+    function parseFlowsCsv(csv){
+      // date,btc,eth (USD)
+      const rows = (csv || "").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+      const out = [];
+      for(const r of rows){
+        const parts = r.split(",").map(x=>x.trim());
+        if(parts.length < 2) continue;
+        const date = parts[0];
+        const btc = Number(parts[1]);
+        const eth = Number(parts[2] ?? 0);
+        if(!date) continue;
+        out.push({date, btc: isFinite(btc)?btc:0, eth: isFinite(eth)?eth:0});
+      }
+      return out;
+    }
 
-  document.getElementById("riskSleevesTable").innerHTML =
-    `Crypto ${fmtPct(data.sleeves.crypto)}<br>
-     Gold ${fmtPct(data.sleeves.gold)}<br>
-     Hedge ${fmtPct(data.sleeves.hedge)}<br>
-     Cash ${fmtPct(data.sleeves.cash)}`;
+    async function safeJson(url){
+      const res = await fetch(url, {cache:"no-store"});
+      if(!res.ok) throw new Error("HTTP " + res.status);
+      return await res.json();
+    }
 
-  document.getElementById("riskHedgeTable").innerHTML =
-    `Annual cost ${fmtPct(data.hedge.annual_cost)}<br>
-     Payout -40% ${fmtPct(data.hedge.payout_btc_m40)}`;
-}
+    // ---------- rendering ----------
+    function renderManualMeta(s){
+      $("btcDom").textContent = s.btcDom || "—";
+      const reg = (s.regime || "").split("/").map(x=>x.trim());
+      const regName = reg[0] || "—";
+      const liq = reg[1] || "—";
+      const vol = reg[2] || "—";
+      $("regimeText").textContent = "Regime: " + regName;
+      $("liqText").textContent = "Liquidity: " + liq;
+      $("volText").textContent = "Vol: " + vol;
 
-const RISK_EP_KEY = "riskEP";
+      const dot = $("regDot");
+      dot.className = "dot " + (
+        /low|calm/i.test(regName) ? "green" :
+        /high|stress|risk/i.test(regName) ? "red" :
+        "amber"
+      );
+    }
 
-function defaultRiskEndpoint(){
-  // points to risk.json on the same GitHub Pages site
-  return new URL("risk.json", window.location.href).toString();
-}
+    function renderFlowsTable(rows){
+      const tbody = $("flowsTbl").querySelector("tbody");
+      tbody.innerHTML = "";
+      for(const r of rows.slice(0, 10)){
+        const tr = document.createElement("tr");
+        const total = (r.btc || 0) + (r.eth || 0);
+        tr.innerHTML = `
+          <td>${r.date}</td>
+          <td class="right ${clsChg(r.btc)}">${fmtUsd0(r.btc)}</td>
+          <td class="right ${clsChg(r.eth)}">${fmtUsd0(r.eth)}</td>
+          <td class="right ${clsChg(total)}">${fmtUsd0(total)}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
 
-function loadEndpoint(){
-  return localStorage.getItem(RISK_EP_KEY) || defaultRiskEndpoint();
-}
-function saveEndpoint(){
-  const v = document.getElementById("riskEndpoint").value.trim();
-  if(!v) return alert("Endpoint is empty.");
-  localStorage.setItem(RISK_EP_KEY, v);
-  alert("Saved.");
-}
+    function renderFlowsHeadline(rows, sourceLabel){
+      const latest = rows?.[0];
+      if(!latest){
+        $("flowsMode").textContent = "Mode: —";
+        $("flowsDate").textContent = "Date: —";
+        $("btcFlows").textContent = "—";
+        $("ethFlows").textContent = "—";
+        $("totFlows").textContent = "—";
+        $("flowImp").textContent = "—";
+        $("flowsSrc").textContent = sourceLabel || "—";
+        $("flowsTbl").querySelector("tbody").innerHTML = "";
+        return;
+      }
+      const total = (latest.btc || 0) + (latest.eth || 0);
+      $("flowsDate").textContent = "Date: " + (latest.date || "—");
+      $("btcFlows").textContent = fmtUsd0(latest.btc);
+      $("ethFlows").textContent = fmtUsd0(latest.eth);
+      $("totFlows").textContent = fmtUsd0(total);
 
-async function safeFetchRisk(){
-  try{
-    const ep = loadEndpoint();
-    if(!ep) return;
-    const url = ep + (ep.includes("?") ? "&" : "?") + "t=" + Date.now(); // cache-bust
-    const r = await fetch(url);
-    if(!r.ok) throw new Error("HTTP " + r.status);
-    const js = await r.json();
-    renderRisk(js);
-  }catch(e){
-    console.log("Risk fetch failed:", e);
-  }
-}
+      // placeholder impulse: sign(total) * log10(1+abs(total))
+      const imp = (total === 0) ? 0 : Math.sign(total) * Math.log10(1 + Math.abs(total));
+      $("flowImp").textContent = (imp >= 0 ? "+" : "") + imp.toFixed(2);
+      $("flowImp").className = "val mono " + (imp >= 0 ? "pos" : "neg");
 
-document.getElementById("riskEndpoint").value = loadEndpoint();
+      $("flowsSrc").textContent = sourceLabel || "—";
+      renderFlowsTable(rows);
+    }
 
-document.getElementById("riskSaveEndpointBtn").onclick = saveEndpoint;
-document.getElementById("riskFetchBtn").onclick = safeFetchRisk;
+    function renderRisk(r){
+      // expected shape:
+      // { var:{value,limit}, cvar:{value,limit}, dd:{value,limit}, conc:{value,limit}, stress:{value,limit}, exposure:{netDelta,vega} }
+      const setRow = (valId, limId, stId, value, limit) => {
+        $(valId).textContent = (typeof value === "number") ? fmtUsd0(value) : (value ?? "—");
+        $(limId).textContent = (typeof limit === "number") ? fmtUsd0(limit) : (limit ?? "—");
+        const ok = (typeof value === "number" && typeof limit === "number") ? (Math.abs(value) <= Math.abs(limit)) : null;
+        $(stId).textContent = ok === null ? "—" : (ok ? "OK" : "BREACH");
+        $(stId).className = "right " + (ok === null ? "muted" : (ok ? "pos" : "neg"));
+      };
 
-document.getElementById("riskRenderBtn").onclick = () => {
-  try{
-    const raw = document.getElementById("riskJsonBox").value.trim();
-    renderRisk(JSON.parse(raw));
-  }catch(e){
-    alert("Invalid JSON: " + e.message);
-  }
-};
+      setRow("varVal","varLim","varSt", r?.var?.value, r?.var?.limit);
+      setRow("cvarVal","cvarLim","cvarSt", r?.cvar?.value, r?.cvar?.limit);
+      // DD% display can be string
+      $("ddVal").textContent = r?.dd?.value ?? "—";
+      $("ddLim").textContent = r?.dd?.limit ?? "—";
+      $("ddSt").textContent = r?.dd?.status ?? "—";
+      $("ddSt").className = "right " + (/breach/i.test($("ddSt").textContent) ? "neg" : "muted");
 
-// initial load + auto-refresh
-safeFetchRisk();
-setInterval(safeFetchRisk, 60_000);
-</script>
+      setRow("concVal","concLim","concSt", r?.conc?.value, r?.conc?.limit);
+      setRow("stressVal","stressLim","stressSt", r?.stress?.value, r?.stress?.limit);
+
+      $("netDelta").textContent = r?.exposure?.netDelta ?? "—";
+      $("vega").textContent = r?.exposure?.vega ?? "—";
+
+      // risk gauge placeholder from dd% if provided like "35%"
+      const ddPct = (typeof r?.dd?.pct === "number") ? r.dd.pct : null;
+      const w = ddPct === null ? 35 : Math.max(0, Math.min(100, ddPct*100));
+      $("riskBar").style.width = w + "%";
+    }
+
+    // ---------- fetchers ----------
+    async function loadPrices(s){
+      // CoinGecko simple price (no key)
+      const url = `${s.coingeckoBase}/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true`;
+      const j = await safeJson(url);
+      const b = j.bitcoin, e = j.ethereum;
+
+      const btc = b?.usd, eth = e?.usd;
+      const bchg = (b?.usd_24h_change ?? null) / 100.0;
+      const echg = (e?.usd_24h_change ?? null) / 100.0;
+
+      $("btcPx").textContent = fmtUsd2(btc);
+      $("btcChg").textContent = (bchg === null ? "—" : `${(bchg>=0?"+":"")}${(bchg*100).toFixed(2)}%  (24h)`);
+      $("btcChg").className = "chg " + (bchg === null ? "muted" : clsChg(bchg));
+
+      $("ethPx").textContent = fmtUsd2(eth);
+      $("ethChg").textContent = (echg === null ? "—" : `${(echg>=0?"+":"")}${(echg*100).toFixed(2)}%  (24h)`);
+      $("ethChg").className = "chg " + (echg === null ? "muted" : clsChg(echg));
+    }
+
+    async function loadFearGreed(){
+      // Alternative.me (public endpoint)
+      // Note: CORS can vary by browser/network. If it fails, it will just show —.
+      const url = "https://api.alternative.me/fng/?limit=1&format=json";
+      const j = await safeJson(url);
+      const v = j?.data?.[0]?.value;
+      const cls = (v >= 60) ? "pos" : (v <= 40) ? "neg" : "warn";
+      $("fg").textContent = v ? String(v) : "—";
+      $("fg").className = "val mono " + (v ? cls : "muted");
+    }
+
+    async function loadFlows(s){
+      const manualCsv = localStorage.getItem("dashboard.flows.manualCsv") || "";
+      if(s.flowsUrl){
+        $("flowsMode").textContent = "Mode: URL";
+        $("flowsSrc").textContent = s.flowsUrl;
+        const rows = await safeJson(s.flowsUrl);
+        // normalize
+        const norm = (rows || []).map(r => ({
+          date: r.date ?? r.day ?? r.d ?? "",
+          btc: Number(r.btc ?? r.btc_usd ?? r.bitcoin ?? 0),
+          eth: Number(r.eth ?? r.eth_usd ?? r.ethereum ?? 0),
+        })).filter(r => r.date);
+        // sort desc by date string
+        norm.sort((a,b)=> (a.date < b.date ? 1 : -1));
+        renderFlowsHeadline(norm, s.flowsUrl);
+        return;
+      }
+
+      if(manualCsv.trim()){
+        $("flowsMode").textContent = "Mode: manual CSV";
+        $("flowsSrc").textContent = "localStorage";
+        const rows = parseFlowsCsv(manualCsv);
+        rows.sort((a,b)=> (a.date < b.date ? 1 : -1));
+        renderFlowsHeadline(rows, "manual CSV");
+        return;
+      }
+
+      $("flowsMode").textContent = "Mode: none";
+      renderFlowsHeadline([], "—");
+    }
+
+    async function loadRisk(s){
+      if(!s.riskUrl){
+        $("riskSrc").textContent = "local placeholders";
+        // you can set your own placeholders here
+        renderRisk({
+          var:{value: null, limit: null},
+          cvar:{value: null, limit: null},
+          dd:{value:"—", limit:"—", status:"—", pct:null},
+          conc:{value:"—", limit:"—"},
+          stress:{value:"—", limit:"—"},
+          exposure:{netDelta:"—", vega:"—"}
+        });
+        return;
+      }
+      $("riskSrc").textContent = s.riskUrl;
+      const r = await safeJson(s.riskUrl);
+      renderRisk(r);
+    }
+
+    // ---------- app ----------
+    let timer = null;
+
+    function updateAsOf(){
+      const d = new Date();
+      $("asOf").textContent = "As of " + d.toLocaleString();
+    }
+
+    async function refresh(){
+      const s = loadSettings();
+      renderManualMeta(s);
+      updateAsOf();
+
+      setStatus("loading…");
+      try{
+        await Promise.allSettled([
+          loadPrices(s),
+          loadRisk(s),
+          loadFlows(s),
+          loadFearGreed(),
+        ]);
+        setStatus("ok");
+      }catch(e){
+        console.error(e);
+        setStatus("error");
+      }
+    }
+
+    function startAuto(){
+      const s = loadSettings();
+      $("autoRef").textContent = `${s.refreshSec}s`;
+      if(timer) clearInterval(timer);
+      timer = setInterval(refresh, Math.max(10, Number(s.refreshSec) || 60) * 1000);
+    }
+
+    // ---------- settings UI ----------
+    function openModal(){
+      const s = loadSettings();
+      $("setRefreshSec").value = s.refreshSec;
+      $("setCg").value = s.coingeckoBase;
+      $("setRiskUrl").value = s.riskUrl;
+      $("setFlowsUrl").value = s.flowsUrl;
+      $("setBtcDom").value = s.btcDom;
+      $("setRegime").value = s.regime;
+      $("setManualFlows").value = localStorage.getItem("dashboard.flows.manualCsv") || "";
+      $("modal").style.display = "flex";
+    }
+
+    function closeModal(){
+      $("modal").style.display = "none";
+    }
+
+    function saveModal(){
+      const s = {
+        refreshSec: Number($("setRefreshSec").value) || 60,
+        coingeckoBase: $("setCg").value.trim() || "https://api.coingecko.com/api/v3",
+        riskUrl: $("setRiskUrl").value.trim(),
+        flowsUrl: $("setFlowsUrl").value.trim(),
+        btcDom: $("setBtcDom").value.trim(),
+        regime: $("setRegime").value.trim(),
+      };
+      saveSettings(s);
+      localStorage.setItem("dashboard.flows.manualCsv", $("setManualFlows").value || "");
+      closeModal();
+      startAuto();
+      refresh();
+    }
+
+    $("refreshBtn").addEventListener("click", refresh);
+    $("settingsBtn").addEventListener("click", openModal);
+    $("closeSettings").addEventListener("click", closeModal);
+    $("saveSettings").addEventListener("click", saveModal);
+    $("modal").addEventListener("click", (e)=>{ if(e.target === $("modal")) closeModal(); });
+
+    // boot
+    (function init(){
+      renderManualMeta(loadSettings());
+      startAuto();
+      refresh();
+    })();
+  </script>
 </body>
 </html>
+
