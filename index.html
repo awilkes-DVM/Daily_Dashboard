@@ -1,687 +1,944 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>BTC/ETH Daily Drivers + Risk Dashboard</title>
-
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BTC/ETH Daily Drivers Dashboard</title>
   <style>
     :root{
-      --bg:#0b0f14; --panel:#111824; --panel2:#0f1622; --text:#e7eef9;
-      --muted:#9bb0c7; --green:#2dd4bf; --amber:#fbbf24; --red:#fb7185;
-      --line:#1f2a3a; --chip:#0b1220;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --bg:#0b0f14;
+      --panel:#111824;
+      --panel2:#0f1622;
+      --text:#e7eef9;
+      --muted:#9bb0c7;
+      --green:#2dd4bf;
+      --amber:#fbbf24;
+      --red:#fb7185;
+      --line:#1f2a3a;
+      --chip:#0b1220;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-      --shadow: 0 10px 30px rgba(0,0,0,.35);
     }
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
-    a{color:inherit;text-decoration:none}
-    .wrap{max-width:1200px;margin:0 auto;padding:18px 16px 28px;}
-    header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;}
-    .title{display:flex;flex-direction:column;gap:2px}
-    h1{margin:0;font-size:18px;letter-spacing:.2px;font-weight:700}
-    .sub{color:var(--muted);font-size:12px}
-    .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .btn{
-      border:1px solid var(--line); background:var(--panel); color:var(--text);
-      padding:8px 10px; border-radius:10px; font-size:12px; cursor:pointer;
-      box-shadow:none;
+    body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); }
+    .wrap{ max-width:1200px; margin:0 auto; padding:18px; }
+    h1{ font-size:20px; margin:0 0 6px; }
+    .sub{ color:var(--muted); font-size:13px; margin-bottom:14px; }
+    .row{ display:grid; gap:12px; }
+    .row.cols5{ grid-template-columns: repeat(5, minmax(0,1fr)); }
+    .row.cols2{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .row.cols4{ grid-template-columns: repeat(4, minmax(0,1fr)); }
+    @media (max-width: 980px){
+      .row.cols5{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .row.cols4{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .row.cols2{ grid-template-columns: 1fr; }
     }
-    .btn:hover{border-color:#2a3a52}
-    .chip{background:var(--chip);border:1px solid var(--line);color:var(--muted);padding:6px 10px;border-radius:999px;font-size:12px}
-    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;}
     .card{
       background:linear-gradient(180deg,var(--panel),var(--panel2));
       border:1px solid var(--line);
-      border-radius:16px;
-      box-shadow:var(--shadow);
-      padding:14px;
-      min-height:90px;
+      border-radius:14px;
+      padding:12px 12px 10px;
+      box-shadow: 0 8px 20px rgba(0,0,0,.25);
     }
-    .card h2{margin:0 0 10px 0;font-size:12px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);font-weight:700}
-    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-    .kpi{padding:10px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.02)}
-    .kpi .label{font-size:11px;color:var(--muted)}
-    .kpi .val{font-size:18px;font-weight:800;margin-top:6px}
-    .kpi .chg{font-size:11px;margin-top:2px}
-    .pos{color:var(--green)} .neg{color:var(--red)} .warn{color:var(--amber)}
-    .span-12{grid-column:span 12}
-    .span-8{grid-column:span 8}
-    .span-6{grid-column:span 6}
-    .span-4{grid-column:span 4}
-    .span-3{grid-column:span 3}
-    .span-2{grid-column:span 2}
-
-    .table{width:100%;border-collapse:collapse;font-size:12px}
-    .table th,.table td{padding:8px 8px;border-bottom:1px solid var(--line);vertical-align:top}
-    .table th{text-align:left;color:var(--muted);font-weight:700}
-    .muted{color:var(--muted)}
-    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .right{margin-left:auto}
-    .small{font-size:12px}
-    .mono{font-family:var(--mono)}
-    .pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.02);font-size:12px;color:var(--muted)}
-    .dot{width:8px;height:8px;border-radius:50%}
-    .dot.green{background:var(--green)} .dot.red{background:var(--red)} .dot.amber{background:var(--amber)}
-    .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .bar{height:10px;border-radius:999px;background:#0a101a;border:1px solid var(--line);overflow:hidden}
-    .bar > div{height:100%;background:linear-gradient(90deg,var(--green),var(--amber),var(--red))}
-    .footer{margin-top:12px;color:var(--muted);font-size:11px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
-
-    /* modal */
-    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px;z-index:999}
-    .modal{width:min(760px,100%);background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:14px}
-    .modal h3{margin:0 0 10px 0;font-size:14px}
-    .form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .field{display:flex;flex-direction:column;gap:6px}
-    .field label{font-size:11px;color:var(--muted)}
-    .field input,.field textarea{
-      width:100%;padding:10px;border-radius:12px;border:1px solid var(--line);
-      background:rgba(0,0,0,.25);color:var(--text);outline:none;font-family:var(--mono);font-size:12px
+    .metric-label{ font-size:12px; color:var(--muted); }
+    .metric-val{ font-size:20px; margin-top:4px; font-family:var(--mono); }
+    .metric-delta{ font-size:12px; margin-top:3px; color:var(--muted); }
+    .divider{ height:1px; background:var(--line); margin:14px 0; }
+    .section-title{ font-size:14px; color:var(--text); margin:0 0 10px; }
+    .flags{ display:flex; flex-direction:column; gap:8px; }
+    .flag{
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:9px 10px;
+      background: #0b1220;
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
     }
-    .field textarea{min-height:120px;resize:vertical}
-    .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:10px}
-    @media (max-width: 900px){
-      .kpis{grid-template-columns:repeat(2,1fr)}
-      .span-8,.span-6,.span-4,.span-3,.span-2{grid-column:span 12}
-      .split{grid-template-columns:1fr}
-      .form{grid-template-columns:1fr}
+    .flag .left{ display:flex; flex-direction:column; gap:2px; }
+    .flag .name{ font-size:13px; }
+    .flag .detail{ font-size:12px; color:var(--muted); }
+    .badge{
+      font-size:11px;
+      font-family:var(--mono);
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:var(--chip);
+      white-space:nowrap;
     }
+    .badge.green{ color:var(--green); border-color: rgba(45,212,191,.35); }
+    .badge.amber{ color:var(--amber); border-color: rgba(251,191,36,.35); }
+    .badge.red{ color:var(--red); border-color: rgba(251,113,133,.35); }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:12px;
+      overflow:hidden;
+      border-radius:12px;
+      border:1px solid var(--line);
+    }
+    th, td{
+      padding:10px 10px;
+      border-bottom:1px solid var(--line);
+      text-align:left;
+      font-family:var(--mono);
+    }
+    th{ color:var(--muted); font-weight:600; background:#0b1220; font-family:var(--sans); }
+    tr:last-child td{ border-bottom:none; }
+    .note{ color:var(--muted); font-size:12px; margin-top:8px; line-height:1.35; }
+    .topbar{
+      display:flex; justify-content:space-between; align-items:center; gap:12px;
+      margin-bottom:10px;
+    }
+    .righttools{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .btn{
+      cursor:pointer;
+      border:1px solid var(--line);
+      background:#0b1220;
+      color:var(--text);
+      border-radius:10px;
+      padding:8px 10px;
+      font-size:12px;
+    }
+    .btn:hover{ border-color:#2a3a52; }
+    .chip{
+      border:1px solid var(--line);
+      background:#0b1220;
+      border-radius:10px;
+      padding:8px 10px;
+      font-size:12px;
+      color:var(--muted);
+      font-family:var(--mono);
+    }
+    .mono{ font-family:var(--mono); }
+    .small{ font-size:12px; color:var(--muted); }
+    .error{ color: var(--red); }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <header>
-      <div class="title">
-        <h1>Daily Drivers + Risk Dashboard</h1>
-        <div class="sub" id="asOf">As of —</div>
+    <div class="topbar">
+      <div>
+        <h1>BTC/ETH Daily Drivers Dashboard</h1>
+        <div class="sub">Static site (GitHub Pages) • Live fetch from CoinGecko / OKX / DefiLlama / Deribit • R/A/G flags</div>
       </div>
-      <div class="actions">
-        <span class="chip mono" id="status">idle</span>
-        <button class="btn" id="refreshBtn">Refresh</button>
-        <button class="btn" id="settingsBtn">Settings</button>
+      <div class="righttools">
+        <div class="chip" id="lastUpdate">last update: —</div>
+        <button class="btn" id="refreshBtn">Refresh now</button>
+        <button class="btn" id="thresholdBtn">Edit thresholds</button>
       </div>
-    </header>
-
-    <div class="grid">
-      <!-- PRICES / DRIVERS -->
-      <section class="card span-12">
-        <h2>Spot + Quick Drivers</h2>
-        <div class="kpis" id="priceKpis">
-          <div class="kpi">
-            <div class="label">BTC</div>
-            <div class="val mono" id="btcPx">—</div>
-            <div class="chg" id="btcChg">—</div>
-          </div>
-          <div class="kpi">
-            <div class="label">ETH</div>
-            <div class="val mono" id="ethPx">—</div>
-            <div class="chg" id="ethChg">—</div>
-          </div>
-          <div class="kpi">
-            <div class="label">BTC Dominance (manual)</div>
-            <div class="val mono" id="btcDom">—</div>
-            <div class="chg muted small">Edit in Settings</div>
-          </div>
-          <div class="kpi">
-            <div class="label">Fear & Greed (optional)</div>
-            <div class="val mono" id="fg">—</div>
-            <div class="chg muted small">Alt.me endpoint</div>
-          </div>
-        </div>
-
-        <div style="margin-top:10px" class="split">
-          <div>
-            <div class="row">
-              <span class="pill"><span class="dot amber" id="regDot"></span><span id="regimeText">Regime: —</span></span>
-              <span class="pill"><span class="dot green"></span><span id="liqText">Liquidity: —</span></span>
-              <span class="pill"><span class="dot red"></span><span id="volText">Vol: —</span></span>
-              <span class="right muted small">These are placeholders you can wire to your own data feed.</span>
-            </div>
-            <div style="margin-top:10px" class="bar" title="Risk gauge (placeholder)">
-              <div id="riskBar" style="width:35%"></div>
-            </div>
-          </div>
-
-          <div>
-            <table class="table" id="moversTbl">
-              <thead>
-                <tr>
-                  <th>Theme</th>
-                  <th>What to watch</th>
-                  <th class="right">Impact</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Rates / USD</td>
-                  <td class="muted">DXY, real yields, Fed path</td>
-                  <td class="right warn">med</td>
-                </tr>
-                <tr>
-                  <td>Flows</td>
-                  <td class="muted">ETF net flows, stablecoin issuance</td>
-                  <td class="right warn">med</td>
-                </tr>
-                <tr>
-                  <td>Positioning</td>
-                  <td class="muted">Funding, basis, OI, liquidations</td>
-                  <td class="right neg">high</td>
-                </tr>
-                <tr>
-                  <td>Idiosyncratic</td>
-                  <td class="muted">Protocol news, hacks, unlocks, regs</td>
-                  <td class="right warn">med</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- RISK (OLD STYLE) -->
-      <section class="card span-8">
-        <h2>Risk Snapshot</h2>
-        <table class="table mono">
-          <thead>
-            <tr>
-              <th>Metric</th>
-              <th>Value</th>
-              <th>Limit</th>
-              <th class="right">Status</th>
-            </tr>
-          </thead>
-          <tbody id="riskTbl">
-            <tr>
-              <td>1D VaR</td>
-              <td id="varVal">—</td>
-              <td id="varLim">—</td>
-              <td class="right" id="varSt">—</td>
-            </tr>
-            <tr>
-              <td>1D CVaR</td>
-              <td id="cvarVal">—</td>
-              <td id="cvarLim">—</td>
-              <td class="right" id="cvarSt">—</td>
-            </tr>
-            <tr>
-              <td>Drawdown (DD%)</td>
-              <td id="ddVal">—</td>
-              <td id="ddLim">—</td>
-              <td class="right" id="ddSt">—</td>
-            </tr>
-            <tr>
-              <td>Concentration (top name)</td>
-              <td id="concVal">—</td>
-              <td id="concLim">—</td>
-              <td class="right" id="concSt">—</td>
-            </tr>
-            <tr>
-              <td>Stress loss (scenario)</td>
-              <td id="stressVal">—</td>
-              <td id="stressLim">—</td>
-              <td class="right" id="stressSt">—</td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="footer">
-          <div>Tip: wire these to your internal JSON endpoint (see Settings).</div>
-          <div class="mono">Risk data source: <span id="riskSrc">local placeholders</span></div>
-        </div>
-      </section>
-
-      <section class="card span-4">
-        <h2>Exposure</h2>
-        <div class="kpi" style="margin-bottom:10px">
-          <div class="label">Net portfolio delta</div>
-          <div class="val mono" id="netDelta">—</div>
-          <div class="chg muted small">BTC-equivalent (placeholder)</div>
-        </div>
-        <div class="kpi" style="margin-bottom:10px">
-          <div class="label">Vega exposure</div>
-          <div class="val mono" id="vega">—</div>
-          <div class="chg muted small">per 1 vol point (placeholder)</div>
-        </div>
-        <div class="kpi">
-          <div class="label">Key notes</div>
-          <div class="chg muted small" id="notes">
-            • If vol spikes / liquidity worsens: forced de-grossing regardless of PnL<br/>
-            • If concentration breaches due to price move: trim to limits<br/>
-            • At +3R: move to “runner only” / lock in floor
-          </div>
-        </div>
-      </section>
-
-      <!-- NEW: ETF FLOWS -->
-      <section class="card span-12">
-        <h2>ETF Net Flows (New)</h2>
-        <div class="row" style="margin-bottom:8px">
-          <span class="pill"><span class="dot green"></span><span id="flowsMode">Mode: —</span></span>
-          <span class="pill"><span class="dot amber"></span><span class="mono" id="flowsDate">Date: —</span></span>
-          <span class="right muted small">You can auto-fetch from a JSON URL, or paste flows manually (Settings).</span>
-        </div>
-
-        <div class="kpis">
-          <div class="kpi">
-            <div class="label">BTC spot ETFs</div>
-            <div class="val mono" id="btcFlows">—</div>
-            <div class="chg muted small">USD, net</div>
-          </div>
-          <div class="kpi">
-            <div class="label">ETH spot ETFs</div>
-            <div class="val mono" id="ethFlows">—</div>
-            <div class="chg muted small">USD, net</div>
-          </div>
-          <div class="kpi">
-            <div class="label">Total (BTC + ETH)</div>
-            <div class="val mono" id="totFlows">—</div>
-            <div class="chg muted small">USD, net</div>
-          </div>
-          <div class="kpi">
-            <div class="label">Flow impulse</div>
-            <div class="val mono" id="flowImp">—</div>
-            <div class="chg muted small">placeholder signal</div>
-          </div>
-        </div>
-
-        <div style="margin-top:10px">
-          <table class="table mono" id="flowsTbl">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th class="right">BTC</th>
-                <th class="right">ETH</th>
-                <th class="right">Total</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-
-        <div class="footer">
-          <div>Expected JSON format: [{ "date":"YYYY-MM-DD", "btc":123456789, "eth":-12345 }...] (USD).</div>
-          <div class="mono">Flows source: <span id="flowsSrc">—</span></div>
-        </div>
-      </section>
     </div>
 
-    <div class="footer">
-      <div>Auto-refresh: <span class="mono" id="autoRef">—</span></div>
-      <div class="mono">LocalStorage keys: dashboard.settings, dashboard.flows.manualCsv</div>
+    <!-- Market Snapshot -->
+    <div class="row cols5" id="snapshotRow"></div>
+
+    <div class="divider"></div>
+
+    <!-- Flags -->
+    <div class="row cols2">
+      <div class="card">
+        <div class="section-title">Daily Flags (R/A/G)</div>
+        <div class="flags" id="flagsLeft"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Risk / Liquidity Flags</div>
+        <div class="flags" id="flagsRight"></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Spot flows + Leverage -->
+    <div class="row cols2">
+      <div class="card">
+        <div class="section-title">Spot Flows & Institutional Demand</div>
+
+        <div class="small">
+          ETF flows (Farside) are pulled via your Cloudflare Worker proxy to avoid CORS.
+          This implementation also **cache-busts** every request and shows the **as-of date** so staleness is obvious.
+        </div>
+
+        <div class="divider"></div>
+        <div class="small">Spot prices (fallback order): OKX → CoinGecko</div>
+        <div class="row cols2" style="margin-top:10px;">
+          <div class="card" style="background:#0b1220;">
+            <div class="metric-label">BTC Spot (USD)</div>
+            <div class="metric-val" id="spotBTC">$—</div>
+            <div class="metric-delta" id="spotBTCsrc">source: —</div>
+          </div>
+          <div class="card" style="background:#0b1220;">
+            <div class="metric-label">ETH Spot (USD)</div>
+            <div class="metric-val" id="spotETH">$—</div>
+            <div class="metric-delta" id="spotETHsrc">source: —</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="small">ETF flows (Farside via Worker)</div>
+        <div class="row cols2" style="margin-top:10px;">
+          <div class="card" style="background:#0b1220;">
+            <div class="metric-label">BTC ETF Flow (latest)</div>
+            <div class="metric-val" id="btcEtfFlow">$—</div>
+            <div class="metric-delta mono" id="btcEtfFlowMeta">as-of: —</div>
+          </div>
+          <div class="card" style="background:#0b1220;">
+            <div class="metric-label">ETH ETF Flow (latest)</div>
+            <div class="metric-val" id="ethEtfFlow">$—</div>
+            <div class="metric-delta mono" id="ethEtfFlowMeta">as-of: —</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="card">
+        <div class="section-title">Leverage & Positioning (Perps)</div>
+        <div class="small">Perp venue: Binance is not used here; we use OKX public endpoints.</div>
+        <div class="divider"></div>
+        <div id="perpTableWrap"></div>
+        <div class="note">Funding is annualized as: funding_8h × 3 × 365 (rough). OI/MktCap is best-effort from OKX OI fields.</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Vol + Stablecoins -->
+    <div class="row cols2">
+      <div class="card">
+        <div class="section-title">Volatility / Risk Regime</div>
+        <div class="row cols4" id="volRow"></div>
+        <div class="note">Realized vol uses 30D log returns (CoinGecko daily). Implied vol uses Deribit vol index (proxy).</div>
+        <div class="divider"></div>
+        <div class="small mono" id="corrLine">BTC/ETH 180D corr: —</div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Liquidity Fuel (Stablecoins)</div>
+        <div class="row cols4" id="stableRow"></div>
+        <div class="note">Stablecoin supply from DefiLlama. Positive 30D change = liquidity tailwind; negative = headwind.</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Macro strip (optional, may fail due to Yahoo CORS) -->
+    <div class="card">
+      <div class="section-title">Macro Cross-Asset Tape (optional)</div>
+      <div class="small">
+        Many finance data sites block browser CORS. This section is best-effort using Stooq free CSV.
+        If it shows NA, either remove it or add a free proxy (Cloudflare Worker).
+      </div>
+      <div class="divider"></div>
+      <div class="row cols4" id="macroRow"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="small">
+      Troubleshooting: If any box shows NA, it usually means an API rate limit or browser CORS. The core crypto endpoints above are typically fine.
     </div>
   </div>
 
-  <!-- SETTINGS MODAL -->
-  <div class="modal-backdrop" id="modal">
-    <div class="modal">
-      <div class="row">
-        <h3 style="margin:0">Dashboard Settings</h3>
-        <div class="right"></div>
-      </div>
+<script>
+/* -----------------------------
+   Config
+------------------------------ */
+const WORKER_BASE_URL = "https://daily-dashboard.awilkes.workers.dev/";
 
-      <div class="form" style="margin-top:10px">
-        <div class="field">
-          <label>Refresh interval (seconds)</label>
-          <input id="setRefreshSec" type="number" min="10" step="5" placeholder="60"/>
-        </div>
+// If you ever want to disable ETF pulls quickly:
+const ENABLE_ETF_FLOWS = true;
 
-        <div class="field">
-          <label>CoinGecko base (leave default)</label>
-          <input id="setCg" type="text" placeholder="https://api.coingecko.com/api/v3"/>
-        </div>
+// These were referenced in your original code but not defined in the snippet.
+// Defining them here prevents runtime ReferenceError.
+const RV_WINDOW_DAYS = 30;
+const CORR_WINDOW_DAYS = 180;
 
-        <div class="field">
-          <label>Risk JSON URL (optional)</label>
-          <input id="setRiskUrl" type="text" placeholder="https://your-endpoint.example/risk.json"/>
-        </div>
+/* -----------------------------
+   Thresholds (editable)
+------------------------------ */
+const defaultThresholds = {
+  FUNDING_CROWDED_LONG_ANN: 0.30,
+  FUNDING_CROWDED_SHORT_ANN: -0.30,
+  OI_MKTCAP_WARN: 0.02,
+  OI_MKTCAP_DANGER: 0.05,
+  BASIS_WARN_ANN: 0.20,
+  BASIS_DANGER_ANN: 0.50,
+  RV_GT_IV_WARN: 0.05,
+  STABLES_D30_WARN_USD: -5e9,
+  STABLES_D30_DANGER_USD: -15e9,
+  BTC_ETH_CORR_HIGH: 0.80
+};
 
-        <div class="field">
-          <label>ETF flows JSON URL (optional)</label>
-          <input id="setFlowsUrl" type="text" placeholder="https://your-endpoint.example/flows.json"/>
-        </div>
+function loadThresholds(){
+  try{
+    const raw = localStorage.getItem("thresholds");
+    if(!raw) return {...defaultThresholds};
+    const parsed = JSON.parse(raw);
+    return {...defaultThresholds, ...parsed};
+  }catch(e){
+    return {...defaultThresholds};
+  }
+}
+function saveThresholds(t){ localStorage.setItem("thresholds", JSON.stringify(t)); }
+let T = loadThresholds();
 
-        <div class="field">
-          <label>BTC dominance (manual)</label>
-          <input id="setBtcDom" type="text" placeholder="e.g. 54.2%"/>
-        </div>
+/* -----------------------------
+   Formatting helpers
+------------------------------ */
+function fmtUSD(x, decimals=0){
+  if(x === null || x === undefined || Number.isNaN(x)) return "NA";
+  return "$" + Number(x).toLocaleString(undefined, {maximumFractionDigits:decimals});
+}
+function fmtPct(x, decimals=2){
+  if(x === null || x === undefined || Number.isNaN(x)) return "NA";
+  return (100*Number(x)).toFixed(decimals) + "%";
+}
+function nowStr(){
+  const d = new Date();
+  return d.toLocaleString();
+}
+function setLastUpdate(ok=true){
+  const el = document.getElementById("lastUpdate");
+  el.textContent = `last update: ${nowStr()}` + (ok ? "" : " (partial)");
+}
 
-        <div class="field">
-          <label>Regime / Liquidity / Vol (manual)</label>
-          <input id="setRegime" type="text" placeholder="e.g. NORMAL / OK / ELEVATED"/>
-        </div>
-
-        <div class="field" style="grid-column:1/-1">
-          <label>Manual ETF flows (CSV). Format: date,btc,eth (USD). Most recent first is OK.</label>
-          <textarea id="setManualFlows" placeholder="2026-01-28,125000000,-12000000&#10;2026-01-27,-34000000,6000000"></textarea>
-        </div>
-      </div>
-
-      <div class="modal-actions">
-        <button class="btn" id="closeSettings">Close</button>
-        <button class="btn" id="saveSettings">Save</button>
-      </div>
-
-      <div class="muted small" style="margin-top:10px">
-        Notes:
-        <ul>
-          <li>Flows can come from your own Cloudflare Worker / GitHub raw JSON / any CORS-enabled URL.</li>
-          <li>If you don't have an ETF flow feed yet, paste daily totals in the CSV box and the dashboard will compute totals.</li>
-        </ul>
-      </div>
+/* -----------------------------
+   DOM builders
+------------------------------ */
+function metricCard(label, value, delta){
+  return `
+    <div class="card">
+      <div class="metric-label">${label}</div>
+      <div class="metric-val">${value}</div>
+      <div class="metric-delta">${delta ?? ""}</div>
     </div>
-  </div>
+  `;
+}
 
-  <script>
-    // ---------- helpers ----------
-    const $ = (id) => document.getElementById(id);
-    const fmtUsd0 = (x) => (x === null || x === undefined || isNaN(x)) ? "—" :
-      new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(x);
-    const fmtUsd2 = (x) => (x === null || x === undefined || isNaN(x)) ? "—" :
-      new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:2}).format(x);
-    const fmtPct = (x) => (x === null || x === undefined || isNaN(x)) ? "—" :
-      new Intl.NumberFormat("en-US",{style:"percent",maximumFractionDigits:2}).format(x);
-    const clsChg = (x) => (x >= 0 ? "pos" : "neg");
-    const setStatus = (txt) => { $("status").textContent = txt; };
+function flagRow(name, level, detail){
+  const cls = level.toLowerCase();
+  return `
+    <div class="flag">
+      <div class="left">
+        <div class="name">${name}</div>
+        <div class="detail">${detail}</div>
+      </div>
+      <div class="badge ${cls}">${level}</div>
+    </div>
+  `;
+}
 
-    function loadSettings(){
-      const d = {
-        refreshSec: 60,
-        coingeckoBase: "https://api.coingecko.com/api/v3",
-        riskUrl: "",
-        flowsUrl: "",
-        btcDom: "",
-        regime: "",
-      };
+/* -----------------------------
+   R/A/G helpers
+------------------------------ */
+function ragFunding(asset, fAnn){
+  if(Number.isNaN(fAnn)) return ["AMBER", "Funding unavailable"];
+  if(fAnn >= T.FUNDING_CROWDED_LONG_ANN) return ["RED", `Crowded long: ${fmtPct(fAnn,1)} ann`];
+  if(fAnn <= T.FUNDING_CROWDED_SHORT_ANN) return ["RED", `Crowded short: ${fmtPct(fAnn,1)} ann`];
+  return ["GREEN", `Funding ${fmtPct(fAnn,1)} ann`];
+}
+function ragOI(asset, oiPct){
+  if(Number.isNaN(oiPct)) return ["AMBER", "OI/MktCap unavailable"];
+  if(oiPct >= T.OI_MKTCAP_DANGER) return ["RED", `High leverage: ${fmtPct(oiPct,2)}`];
+  if(oiPct >= T.OI_MKTCAP_WARN) return ["AMBER", `Elevated: ${fmtPct(oiPct,2)}`];
+  return ["GREEN", `${fmtPct(oiPct,2)}`];
+}
+function ragBasis(asset, bAnn){
+  if(Number.isNaN(bAnn)) return ["AMBER", "Basis unavailable"];
+  if(Math.abs(bAnn) >= T.BASIS_DANGER_ANN) return ["RED", `Extreme basis: ${fmtPct(bAnn,1)} ann`];
+  if(Math.abs(bAnn) >= T.BASIS_WARN_ANN) return ["AMBER", `Elevated basis: ${fmtPct(bAnn,1)} ann`];
+  return ["GREEN", `${fmtPct(bAnn,1)} ann`];
+}
+function ragRVIV(name, rv, iv){
+  if(Number.isNaN(rv) || Number.isNaN(iv)) return ["AMBER", "RV/IV unavailable"];
+  const diff = rv - iv;
+  if(diff >= T.RV_GT_IV_WARN) return ["AMBER", `RV > IV by ${(diff*100).toFixed(1)} vol pts`];
+  return ["GREEN", `RV-IV ${(diff*100).toFixed(1)} vol pts`];
+}
+function ragStables(d30){
+  if(Number.isNaN(d30)) return ["AMBER", "Stable supply unavailable"];
+  if(d30 <= T.STABLES_D30_DANGER_USD) return ["RED", `${(d30/1e9).toFixed(1)}B (liquidity drain)`];
+  if(d30 <= T.STABLES_D30_WARN_USD) return ["AMBER", `${(d30/1e9).toFixed(1)}B (headwind)`];
+  return ["GREEN", `${(d30/1e9).toFixed(1)}B`];
+}
+function ragCorr(corr){
+  if(Number.isNaN(corr)) return ["AMBER", "Correlation unavailable"];
+  if(corr >= T.BTC_ETH_CORR_HIGH) return ["AMBER", `High corr ${corr.toFixed(2)} → less diversification`];
+  return ["GREEN", `${corr.toFixed(2)}`];
+}
+
+/* -----------------------------
+   Fetch helpers (cache-busting)
+   This is the #1 fix for “value never changes”.
+------------------------------ */
+async function fetchJSON(url){
+  const sep = url.includes("?") ? "&" : "?";
+  const bust = `cb=${Date.now()}`;
+  const res = await fetch(url + sep + bust, {
+    method:"GET",
+    cache:"no-store",
+    headers:{ "Cache-Control":"no-cache" }
+  });
+  if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+async function fetchText(url){
+  const sep = url.includes("?") ? "&" : "?";
+  const bust = `cb=${Date.now()}`;
+  const res = await fetch(url + sep + bust, {
+    method:"GET",
+    cache:"no-store",
+    headers:{ "Cache-Control":"no-cache" }
+  });
+  if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.text();
+}
+
+/* -----------------------------
+   Data sources
+------------------------------ */
+async function getCoinGeckoSnapshot(){
+  const priceUrl = `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true&include_7d_change=true&include_market_cap=true`;
+  const globalUrl = `https://api.coingecko.com/api/v3/global`;
+  const [p, g] = await Promise.all([fetchJSON(priceUrl), fetchJSON(globalUrl)]);
+  return {
+    btc: p.bitcoin,
+    eth: p.ethereum,
+    totalMcap: g?.data?.total_market_cap?.usd ?? NaN,
+    totalMcap24h: g?.data?.market_cap_change_percentage_24h_usd ?? NaN
+  };
+}
+
+async function getCoinGeckoDaily(coinId, days){
+  const url = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=${days}&interval=daily`;
+  const js = await fetchJSON(url);
+  const raw = js.prices || [];
+  const map = new Map();
+  for(const [ts, price] of raw){
+    const d = new Date(ts);
+    const key = d.toISOString().slice(0,10);
+    map.set(key, price);
+  }
+  const dates = Array.from(map.keys()).sort();
+  const prices = dates.map(k => map.get(k));
+  return { dates, prices };
+}
+
+function logReturns(prices){
+  const r = [];
+  for(let i=1;i<prices.length;i++){
+    const p0 = prices[i-1], p1=prices[i];
+    if(!(p0>0 && p1>0)) continue;
+    r.push(Math.log(p1/p0));
+  }
+  return r;
+}
+function rollingStd(arr, window){
+  const out = new Array(arr.length).fill(NaN);
+  for(let i=window-1;i<arr.length;i++){
+    const slice = arr.slice(i-window+1, i+1);
+    const mean = slice.reduce((a,b)=>a+b,0)/slice.length;
+    const varr = slice.reduce((a,b)=>a+(b-mean)*(b-mean),0)/(slice.length-1);
+    out[i] = Math.sqrt(varr);
+  }
+  return out;
+}
+function realizedVolAnn(logRets, window, daysPerYear=365){
+  const sd = rollingStd(logRets, window);
+  return sd.map(x => Number.isNaN(x) ? NaN : x*Math.sqrt(daysPerYear));
+}
+function rollingCorr(x,y,window){
+  const n = Math.min(x.length,y.length);
+  const out = new Array(n).fill(NaN);
+  for(let i=window-1;i<n;i++){
+    const xs = x.slice(i-window+1, i+1);
+    const ys = y.slice(i-window+1, i+1);
+    const mx = xs.reduce((a,b)=>a+b,0)/window;
+    const my = ys.reduce((a,b)=>a+b,0)/window;
+    let num=0, dx=0, dy=0;
+    for(let k=0;k<window;k++){
+      const a=xs[k]-mx, b=ys[k]-my;
+      num += a*b; dx += a*a; dy += b*b;
+    }
+    out[i] = (dx>0 && dy>0) ? num/Math.sqrt(dx*dy) : NaN;
+  }
+  return out;
+}
+
+// OKX spot last
+async function okxSpotLast(instId){
+  const url = `https://www.okx.com/api/v5/market/ticker?instId=${encodeURIComponent(instId)}`;
+  const js = await fetchJSON(url);
+  const row = js?.data?.[0];
+  return row ? Number(row.last) : NaN;
+}
+
+// OKX perp: funding + OI + mark
+async function okxPerp(instIdSwap){
+  const frUrl = `https://www.okx.com/api/v5/public/funding-rate?instId=${encodeURIComponent(instIdSwap)}`;
+  const oiUrl = `https://www.okx.com/api/v5/public/open-interest?instType=SWAP&instId=${encodeURIComponent(instIdSwap)}`;
+  const mpUrl = `https://www.okx.com/api/v5/public/mark-price?instType=SWAP&instId=${encodeURIComponent(instIdSwap)}`;
+  const [fr, oi, mp] = await Promise.all([fetchJSON(frUrl), fetchJSON(oiUrl), fetchJSON(mpUrl)]);
+
+  const frRow = fr?.data?.[0];
+  const oiRow = oi?.data?.[0];
+  const mpRow = mp?.data?.[0];
+
+  const funding8h = frRow ? Number(frRow.fundingRate) : NaN;
+  const fundingAnn = Number.isNaN(funding8h) ? NaN : funding8h*3*365;
+
+  const oiUsd = oiRow && oiRow.oiUsd !== undefined ? Number(oiRow.oiUsd) : NaN;
+  const oiCcy = oiRow && oiRow.oiCcy !== undefined ? Number(oiRow.oiCcy) : (oiRow && oiRow.oi !== undefined ? Number(oiRow.oi) : NaN);
+  const mark = mpRow ? Number(mpRow.markPx) : NaN;
+
+  return { funding8h, fundingAnn, oiUsd, oiCcy, mark };
+}
+
+// Deribit IV index
+async function deribitIV(currency){
+  const url = `https://www.deribit.com/api/v2/public/get_volatility_index_data?currency=${encodeURIComponent(currency)}`;
+  const js = await fetchJSON(url);
+  const arr = js?.result?.data || [];
+  if(!arr.length) return NaN;
+  const v = Number(arr[arr.length-1].v);
+  return Number.isFinite(v) ? v/100 : NaN;
+}
+
+// DefiLlama stablecoins total
+async function llamaStablesTotal(){
+  const url = `https://stablecoins.llama.fi/stablecoins`;
+  const js = await fetchJSON(url);
+  const hist = js?.totalCirculating || [];
+  if(!hist.length) return { last:NaN, d7:NaN, d30:NaN };
+  const sorted = [...hist].sort((a,b)=>a.date-b.date);
+  const last = Number(sorted[sorted.length-1].totalCirculating);
+  const d7 = sorted.length>=8 ? (Number(sorted[sorted.length-1].totalCirculating) - Number(sorted[sorted.length-8].totalCirculating)) : NaN;
+  const d30 = sorted.length>=31 ? (Number(sorted[sorted.length-1].totalCirculating) - Number(sorted[sorted.length-31].totalCirculating)) : NaN;
+  return { last, d7, d30 };
+}
+
+// DefiLlama single stable
+async function llamaStable(symbol){
+  const url = `https://stablecoins.llama.fi/stablecoin/${encodeURIComponent(symbol)}`;
+  const js = await fetchJSON(url);
+  const hist = js?.circulating || [];
+  if(!hist.length) return { last:NaN, d7:NaN };
+  const sorted = [...hist].sort((a,b)=>a.date-b.date);
+  const last = Number(sorted[sorted.length-1].circulating);
+  const d7 = sorted.length>=8 ? (Number(sorted[sorted.length-1].circulating) - Number(sorted[sorted.length-8].circulating)) : NaN;
+  return { last, d7 };
+}
+
+/* -----------------------------
+   Macro (best-effort via Stooq CSV)
+------------------------------ */
+async function stooqPct1d(symbol){
+  const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(symbol)}&i=d`;
+  const csv = await fetchText(url);
+  const lines = csv.trim().split("\n");
+  if(lines.length < 3) return NaN;
+  const last = lines[lines.length-1].split(",");
+  const prev = lines[lines.length-2].split(",");
+  const cLast = Number(last[4]); // Close
+  const cPrev = Number(prev[4]);
+  if(!(cLast>0 && cPrev>0)) return NaN;
+  return cLast/cPrev - 1;
+}
+
+/* -----------------------------
+   ETF flows (Farside via Worker)
+   - cache-bust on every request
+   - choose the *latest dated* row (not total)
+   - show as-of date so staleness is obvious
+------------------------------ */
+function normalizeDateToISO(s){
+  const str = String(s ?? "").replace(/\s+/g, " ").trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+  const t = Date.parse(str);
+  if(!Number.isNaN(t)){
+    const d = new Date(t);
+    return d.toISOString().slice(0,10);
+  }
+  return null;
+}
+
+function parseFarsideNumber(s){
+  if(!s) return NaN;
+  let x = String(s).trim();
+
+  // (123) -> -123
+  const m = /^\((.*)\)$/.exec(x);
+  if(m) x = "-" + m[1];
+
+  x = x.replace(/[$£€,]/g, "").replace(/\s+/g, "");
+  const mult =
+    /bn$/i.test(x) ? 1e9 :
+    /b$/i.test(x) ? 1e9 :
+    /m$/i.test(x) ? 1e6 :
+    /k$/i.test(x) ? 1e3 : 1;
+
+  x = x.replace(/(bn|b|m|k)$/i, "");
+  const n = Number(x);
+  return Number.isFinite(n) ? n * mult : NaN;
+}
+
+function parseFarsideLatestFlow(htmlText){
+  const doc = new DOMParser().parseFromString(htmlText, "text/html");
+  const tables = Array.from(doc.querySelectorAll("table"));
+  if(!tables.length) throw new Error("Farside parse: table not found");
+
+  // Heuristic: pick the table with the most rows
+  let table = tables[0];
+  for(const t of tables){
+    if(t.querySelectorAll("tr").length > table.querySelectorAll("tr").length) table = t;
+  }
+
+  const rows = Array.from(table.querySelectorAll("tr"));
+  const candidates = [];
+
+  for(const tr of rows){
+    const cells = Array.from(tr.querySelectorAll("td")).map(td => td.textContent.trim());
+    if(cells.length < 2) continue;
+
+    const rawDate = cells[0];
+    const iso = normalizeDateToISO(rawDate);
+    if(!iso) continue;
+
+    const rawFlow = cells[cells.length - 1]; // usually last col is net flow
+    const flow = parseFarsideNumber(rawFlow);
+    candidates.push({ isoDate: iso, flow });
+  }
+
+  if(!candidates.length) throw new Error("Farside parse: no dated rows found");
+
+  candidates.sort((a,b) => a.isoDate.localeCompare(b.isoDate));
+  return candidates[candidates.length - 1];
+}
+
+async function getFarsideLatestFlowViaWorker(farsideUrl){
+  const worker = WORKER_BASE_URL.replace(/\/+$/,"/"); // ensure trailing slash
+  const target = worker + "?url=" + encodeURIComponent(farsideUrl);
+  const html = await fetchText(target);
+  return parseFarsideLatestFlow(html);
+}
+
+/* -----------------------------
+   Render
+------------------------------ */
+function renderSnapshot(s){
+  const btc = s.btc, eth = s.eth;
+  const snapRow = document.getElementById("snapshotRow");
+  snapRow.innerHTML = [
+    metricCard("BTC Spot", fmtUSD(btc.usd,0), `${fmtPct(btc.usd_24h_change/100,2)} (24h)`),
+    metricCard("BTC 7D", fmtPct(btc.usd_7d_change/100,2), ""),
+    metricCard("ETH Spot", fmtUSD(eth.usd,0), `${fmtPct(eth.usd_24h_change/100,2)} (24h)`),
+    metricCard("ETH 7D", fmtPct(eth.usd_7d_change/100,2), ""),
+    metricCard("Total Crypto Mkt Cap", fmtUSD(s.totalMcap,0), `${fmtPct(s.totalMcap24h/100,2)} (24h)`),
+  ].join("");
+}
+
+function renderPerpTable(btc, eth, btcOiPct, ethOiPct, btcBasisAnn, ethBasisAnn){
+  const wrap = document.getElementById("perpTableWrap");
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Asset</th>
+          <th>Funding (ann.)</th>
+          <th>OI / MktCap</th>
+          <th>Basis (ann. proxy)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>BTC</td>
+          <td>${fmtPct(btc.fundingAnn,1)}</td>
+          <td>${fmtPct(btcOiPct,2)}</td>
+          <td>${fmtPct(btcBasisAnn,1)}</td>
+        </tr>
+        <tr>
+          <td>ETH</td>
+          <td>${fmtPct(eth.fundingAnn,1)}</td>
+          <td>${fmtPct(ethOiPct,2)}</td>
+          <td>${fmtPct(ethBasisAnn,1)}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+}
+
+function renderVol(rvBtc, ivBtc, rvEth, ivEth){
+  const row = document.getElementById("volRow");
+  row.innerHTML = [
+    metricCard("BTC 30D Realized Vol", fmtPct(rvBtc,1), ""),
+    metricCard("BTC 30D Implied Vol", fmtPct(ivBtc,1), ""),
+    metricCard("ETH 30D Realized Vol", fmtPct(rvEth,1), ""),
+    metricCard("ETH 30D Implied Vol", fmtPct(ivEth,1), ""),
+  ].join("");
+}
+
+function renderStables(tot, usdt, usdc){
+  const row = document.getElementById("stableRow");
+  row.innerHTML = [
+    metricCard("Total Stable MCAP", fmtUSD(tot.last,0), ""),
+    metricCard("Δ 7D", fmtUSD(tot.d7,0), ""),
+    metricCard("USDT (Δ7D)", fmtUSD(usdt.last,0), fmtUSD(usdt.d7,0)),
+    metricCard("USDC (Δ7D)", fmtUSD(usdc.last,0), fmtUSD(usdc.d7,0)),
+  ].join("");
+}
+
+function renderMacro(m){
+  const row = document.getElementById("macroRow");
+  row.innerHTML = [
+    metricCard("NASDAQ (QQQ)", "QQQ.US", fmtPct(m.qqq,2)),
+    metricCard("SPX (SPY)", "SPY.US", fmtPct(m.spy,2)),
+    metricCard("GOLD (GLD)", "GLD.US", fmtPct(m.gld,2)),
+    metricCard("DXY", "NA (proxy)", "NA"),
+  ].join("");
+}
+
+function renderFlags(leftFlags, rightFlags){
+  document.getElementById("flagsLeft").innerHTML = leftFlags.join("");
+  document.getElementById("flagsRight").innerHTML = rightFlags.join("");
+}
+
+/* -----------------------------
+   Main refresh
+------------------------------ */
+async function refresh(){
+  try{
+    const snap = await getCoinGeckoSnapshot();
+    renderSnapshot(snap);
+
+    // Spots (OKX -> CG fallback)
+    let btcSpot = await okxSpotLast("BTC-USDT").catch(()=>NaN);
+    let ethSpot = await okxSpotLast("ETH-USDT").catch(()=>NaN);
+    let btcSpotSrc = "OKX";
+    let ethSpotSrc = "OKX";
+
+    if(Number.isNaN(btcSpot)){ btcSpot = snap.btc.usd; btcSpotSrc = "CoinGecko"; }
+    if(Number.isNaN(ethSpot)){ ethSpot = snap.eth.usd; ethSpotSrc = "CoinGecko"; }
+
+    document.getElementById("spotBTC").textContent = fmtUSD(btcSpot,0);
+    document.getElementById("spotBTCsrc").textContent = `source: ${btcSpotSrc}`;
+    document.getElementById("spotETH").textContent = fmtUSD(ethSpot,0);
+    document.getElementById("spotETHsrc").textContent = `source: ${ethSpotSrc}`;
+
+    // ETF flows (Farside via Worker)
+    if(ENABLE_ETF_FLOWS){
       try{
-        const s = JSON.parse(localStorage.getItem("dashboard.settings") || "{}");
-        return {...d, ...s};
-      }catch(e){ return d; }
-    }
-
-    function saveSettings(s){
-      localStorage.setItem("dashboard.settings", JSON.stringify(s));
-    }
-
-    function parseFlowsCsv(csv){
-      // date,btc,eth (USD)
-      const rows = (csv || "").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-      const out = [];
-      for(const r of rows){
-        const parts = r.split(",").map(x=>x.trim());
-        if(parts.length < 2) continue;
-        const date = parts[0];
-        const btc = Number(parts[1]);
-        const eth = Number(parts[2] ?? 0);
-        if(!date) continue;
-        out.push({date, btc: isFinite(btc)?btc:0, eth: isFinite(eth)?eth:0});
-      }
-      return out;
-    }
-
-    async function safeJson(url){
-      const res = await fetch(url, {cache:"no-store"});
-      if(!res.ok) throw new Error("HTTP " + res.status);
-      return await res.json();
-    }
-
-    // ---------- rendering ----------
-    function renderManualMeta(s){
-      $("btcDom").textContent = s.btcDom || "—";
-      const reg = (s.regime || "").split("/").map(x=>x.trim());
-      const regName = reg[0] || "—";
-      const liq = reg[1] || "—";
-      const vol = reg[2] || "—";
-      $("regimeText").textContent = "Regime: " + regName;
-      $("liqText").textContent = "Liquidity: " + liq;
-      $("volText").textContent = "Vol: " + vol;
-
-      const dot = $("regDot");
-      dot.className = "dot " + (
-        /low|calm/i.test(regName) ? "green" :
-        /high|stress|risk/i.test(regName) ? "red" :
-        "amber"
-      );
-    }
-
-    function renderFlowsTable(rows){
-      const tbody = $("flowsTbl").querySelector("tbody");
-      tbody.innerHTML = "";
-      for(const r of rows.slice(0, 10)){
-        const tr = document.createElement("tr");
-        const total = (r.btc || 0) + (r.eth || 0);
-        tr.innerHTML = `
-          <td>${r.date}</td>
-          <td class="right ${clsChg(r.btc)}">${fmtUsd0(r.btc)}</td>
-          <td class="right ${clsChg(r.eth)}">${fmtUsd0(r.eth)}</td>
-          <td class="right ${clsChg(total)}">${fmtUsd0(total)}</td>
-        `;
-        tbody.appendChild(tr);
-      }
-    }
-
-    function renderFlowsHeadline(rows, sourceLabel){
-      const latest = rows?.[0];
-      if(!latest){
-        $("flowsMode").textContent = "Mode: —";
-        $("flowsDate").textContent = "Date: —";
-        $("btcFlows").textContent = "—";
-        $("ethFlows").textContent = "—";
-        $("totFlows").textContent = "—";
-        $("flowImp").textContent = "—";
-        $("flowsSrc").textContent = sourceLabel || "—";
-        $("flowsTbl").querySelector("tbody").innerHTML = "";
-        return;
-      }
-      const total = (latest.btc || 0) + (latest.eth || 0);
-      $("flowsDate").textContent = "Date: " + (latest.date || "—");
-      $("btcFlows").textContent = fmtUsd0(latest.btc);
-      $("ethFlows").textContent = fmtUsd0(latest.eth);
-      $("totFlows").textContent = fmtUsd0(total);
-
-      // placeholder impulse: sign(total) * log10(1+abs(total))
-      const imp = (total === 0) ? 0 : Math.sign(total) * Math.log10(1 + Math.abs(total));
-      $("flowImp").textContent = (imp >= 0 ? "+" : "") + imp.toFixed(2);
-      $("flowImp").className = "val mono " + (imp >= 0 ? "pos" : "neg");
-
-      $("flowsSrc").textContent = sourceLabel || "—";
-      renderFlowsTable(rows);
-    }
-
-    function renderRisk(r){
-      // expected shape:
-      // { var:{value,limit}, cvar:{value,limit}, dd:{value,limit}, conc:{value,limit}, stress:{value,limit}, exposure:{netDelta,vega} }
-      const setRow = (valId, limId, stId, value, limit) => {
-        $(valId).textContent = (typeof value === "number") ? fmtUsd0(value) : (value ?? "—");
-        $(limId).textContent = (typeof limit === "number") ? fmtUsd0(limit) : (limit ?? "—");
-        const ok = (typeof value === "number" && typeof limit === "number") ? (Math.abs(value) <= Math.abs(limit)) : null;
-        $(stId).textContent = ok === null ? "—" : (ok ? "OK" : "BREACH");
-        $(stId).className = "right " + (ok === null ? "muted" : (ok ? "pos" : "neg"));
-      };
-
-      setRow("varVal","varLim","varSt", r?.var?.value, r?.var?.limit);
-      setRow("cvarVal","cvarLim","cvarSt", r?.cvar?.value, r?.cvar?.limit);
-      // DD% display can be string
-      $("ddVal").textContent = r?.dd?.value ?? "—";
-      $("ddLim").textContent = r?.dd?.limit ?? "—";
-      $("ddSt").textContent = r?.dd?.status ?? "—";
-      $("ddSt").className = "right " + (/breach/i.test($("ddSt").textContent) ? "neg" : "muted");
-
-      setRow("concVal","concLim","concSt", r?.conc?.value, r?.conc?.limit);
-      setRow("stressVal","stressLim","stressSt", r?.stress?.value, r?.stress?.limit);
-
-      $("netDelta").textContent = r?.exposure?.netDelta ?? "—";
-      $("vega").textContent = r?.exposure?.vega ?? "—";
-
-      // risk gauge placeholder from dd% if provided like "35%"
-      const ddPct = (typeof r?.dd?.pct === "number") ? r.dd.pct : null;
-      const w = ddPct === null ? 35 : Math.max(0, Math.min(100, ddPct*100));
-      $("riskBar").style.width = w + "%";
-    }
-
-    // ---------- fetchers ----------
-    async function loadPrices(s){
-      // CoinGecko simple price (no key)
-      const url = `${s.coingeckoBase}/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true`;
-      const j = await safeJson(url);
-      const b = j.bitcoin, e = j.ethereum;
-
-      const btc = b?.usd, eth = e?.usd;
-      const bchg = (b?.usd_24h_change ?? null) / 100.0;
-      const echg = (e?.usd_24h_change ?? null) / 100.0;
-
-      $("btcPx").textContent = fmtUsd2(btc);
-      $("btcChg").textContent = (bchg === null ? "—" : `${(bchg>=0?"+":"")}${(bchg*100).toFixed(2)}%  (24h)`);
-      $("btcChg").className = "chg " + (bchg === null ? "muted" : clsChg(bchg));
-
-      $("ethPx").textContent = fmtUsd2(eth);
-      $("ethChg").textContent = (echg === null ? "—" : `${(echg>=0?"+":"")}${(echg*100).toFixed(2)}%  (24h)`);
-      $("ethChg").className = "chg " + (echg === null ? "muted" : clsChg(echg));
-    }
-
-    async function loadFearGreed(){
-      // Alternative.me (public endpoint)
-      // Note: CORS can vary by browser/network. If it fails, it will just show —.
-      const url = "https://api.alternative.me/fng/?limit=1&format=json";
-      const j = await safeJson(url);
-      const v = j?.data?.[0]?.value;
-      const cls = (v >= 60) ? "pos" : (v <= 40) ? "neg" : "warn";
-      $("fg").textContent = v ? String(v) : "—";
-      $("fg").className = "val mono " + (v ? cls : "muted");
-    }
-
-    async function loadFlows(s){
-      const manualCsv = localStorage.getItem("dashboard.flows.manualCsv") || "";
-      if(s.flowsUrl){
-        $("flowsMode").textContent = "Mode: URL";
-        $("flowsSrc").textContent = s.flowsUrl;
-        const rows = await safeJson(s.flowsUrl);
-        // normalize
-        const norm = (rows || []).map(r => ({
-          date: r.date ?? r.day ?? r.d ?? "",
-          btc: Number(r.btc ?? r.btc_usd ?? r.bitcoin ?? 0),
-          eth: Number(r.eth ?? r.eth_usd ?? r.ethereum ?? 0),
-        })).filter(r => r.date);
-        // sort desc by date string
-        norm.sort((a,b)=> (a.date < b.date ? 1 : -1));
-        renderFlowsHeadline(norm, s.flowsUrl);
-        return;
-      }
-
-      if(manualCsv.trim()){
-        $("flowsMode").textContent = "Mode: manual CSV";
-        $("flowsSrc").textContent = "localStorage";
-        const rows = parseFlowsCsv(manualCsv);
-        rows.sort((a,b)=> (a.date < b.date ? 1 : -1));
-        renderFlowsHeadline(rows, "manual CSV");
-        return;
-      }
-
-      $("flowsMode").textContent = "Mode: none";
-      renderFlowsHeadline([], "—");
-    }
-
-    async function loadRisk(s){
-      if(!s.riskUrl){
-        $("riskSrc").textContent = "local placeholders";
-        // you can set your own placeholders here
-        renderRisk({
-          var:{value: null, limit: null},
-          cvar:{value: null, limit: null},
-          dd:{value:"—", limit:"—", status:"—", pct:null},
-          conc:{value:"—", limit:"—"},
-          stress:{value:"—", limit:"—"},
-          exposure:{netDelta:"—", vega:"—"}
-        });
-        return;
-      }
-      $("riskSrc").textContent = s.riskUrl;
-      const r = await safeJson(s.riskUrl);
-      renderRisk(r);
-    }
-
-    // ---------- app ----------
-    let timer = null;
-
-    function updateAsOf(){
-      const d = new Date();
-      $("asOf").textContent = "As of " + d.toLocaleString();
-    }
-
-    async function refresh(){
-      const s = loadSettings();
-      renderManualMeta(s);
-      updateAsOf();
-
-      setStatus("loading…");
-      try{
-        await Promise.allSettled([
-          loadPrices(s),
-          loadRisk(s),
-          loadFlows(s),
-          loadFearGreed(),
+        const [btcFlow, ethFlow] = await Promise.all([
+          getFarsideLatestFlowViaWorker("https://farside.co.uk/bitcoin-etf-flow-all-data/"),
+          getFarsideLatestFlowViaWorker("https://farside.co.uk/ethereum-etf-flow-all-data/")
         ]);
-        setStatus("ok");
+
+        // Render BTC
+        document.getElementById("btcEtfFlow").textContent = fmtUSD(btcFlow.flow,0);
+        document.getElementById("btcEtfFlowMeta").textContent = `as-of: ${btcFlow.isoDate}`;
+
+        // Render ETH
+        document.getElementById("ethEtfFlow").textContent = fmtUSD(ethFlow.flow,0);
+        document.getElementById("ethEtfFlowMeta").textContent = `as-of: ${ethFlow.isoDate}`;
+
       }catch(e){
-        console.error(e);
-        setStatus("error");
+        console.warn("ETF flow fetch failed:", e);
+        document.getElementById("btcEtfFlow").textContent = "NA";
+        document.getElementById("btcEtfFlowMeta").textContent = "as-of: NA";
+        document.getElementById("ethEtfFlow").textContent = "NA";
+        document.getElementById("ethEtfFlowMeta").textContent = "as-of: NA";
       }
+    }else{
+      document.getElementById("btcEtfFlow").textContent = "NA";
+      document.getElementById("btcEtfFlowMeta").textContent = "disabled";
+      document.getElementById("ethEtfFlow").textContent = "NA";
+      document.getElementById("ethEtfFlowMeta").textContent = "disabled";
     }
 
-    function startAuto(){
-      const s = loadSettings();
-      $("autoRef").textContent = `${s.refreshSec}s`;
-      if(timer) clearInterval(timer);
-      timer = setInterval(refresh, Math.max(10, Number(s.refreshSec) || 60) * 1000);
+    // Perps (OKX)
+    const [btcPerp, ethPerp] = await Promise.all([
+      okxPerp("BTC-USDT-SWAP").catch(()=>({fundingAnn:NaN, oiUsd:NaN, oiCcy:NaN, mark:NaN})),
+      okxPerp("ETH-USDT-SWAP").catch(()=>({fundingAnn:NaN, oiUsd:NaN, oiCcy:NaN, mark:NaN}))
+    ]);
+
+    // OI / MktCap (best effort)
+    const btcMcap = Number(snap.btc.usd_market_cap);
+    const ethMcap = Number(snap.eth.usd_market_cap);
+
+    function oiNotional(perp){
+      if(!Number.isNaN(perp.oiUsd)) return perp.oiUsd;
+      if(!Number.isNaN(perp.oiCcy) && !Number.isNaN(perp.mark)) return perp.oiCcy * perp.mark;
+      return NaN;
     }
 
-    // ---------- settings UI ----------
-    function openModal(){
-      const s = loadSettings();
-      $("setRefreshSec").value = s.refreshSec;
-      $("setCg").value = s.coingeckoBase;
-      $("setRiskUrl").value = s.riskUrl;
-      $("setFlowsUrl").value = s.flowsUrl;
-      $("setBtcDom").value = s.btcDom;
-      $("setRegime").value = s.regime;
-      $("setManualFlows").value = localStorage.getItem("dashboard.flows.manualCsv") || "";
-      $("modal").style.display = "flex";
+    const btcOiNotional = oiNotional(btcPerp);
+    const ethOiNotional = oiNotional(ethPerp);
+    const btcOiPct = (btcOiNotional>0 && btcMcap>0) ? btcOiNotional/btcMcap : NaN;
+    const ethOiPct = (ethOiNotional>0 && ethMcap>0) ? ethOiNotional/ethMcap : NaN;
+
+    // Basis proxy: perp mark vs spot
+    const btcBasisAnn = (!Number.isNaN(btcPerp.mark) && btcSpot>0) ? ((btcPerp.mark/btcSpot)-1)*365 : NaN;
+    const ethBasisAnn = (!Number.isNaN(ethPerp.mark) && ethSpot>0) ? ((ethPerp.mark/ethSpot)-1)*365 : NaN;
+
+    renderPerpTable(btcPerp, ethPerp, btcOiPct, ethOiPct, btcBasisAnn, ethBasisAnn);
+
+    // Vol/corr (CoinGecko daily) + Deribit IV
+    const [btcDaily, ethDaily] = await Promise.all([
+      getCoinGeckoDaily("bitcoin", Math.max(220, CORR_WINDOW_DAYS+20)).catch(()=>({dates:[], prices:[]})),
+      getCoinGeckoDaily("ethereum", Math.max(220, CORR_WINDOW_DAYS+20)).catch(()=>({dates:[], prices:[]}))
+    ]);
+
+    const btcLR = logReturns(btcDaily.prices);
+    const ethLR = logReturns(ethDaily.prices);
+
+    const btcRV = realizedVolAnn(btcLR, RV_WINDOW_DAYS, 365);
+    const ethRV = realizedVolAnn(ethLR, RV_WINDOW_DAYS, 365);
+    const lastBtcRV = btcRV.length ? btcRV[btcRV.length-1] : NaN;
+    const lastEthRV = ethRV.length ? ethRV[ethRV.length-1] : NaN;
+
+    const [btcIV, ethIV] = await Promise.all([
+      deribitIV("BTC").catch(()=>NaN),
+      deribitIV("ETH").catch(()=>NaN)
+    ]);
+
+    renderVol(lastBtcRV, btcIV, lastEthRV, ethIV);
+
+    // Corr 180D
+    let corr = NaN;
+    if(btcLR.length && ethLR.length){
+      const n = Math.min(btcLR.length, ethLR.length);
+      const cArr = rollingCorr(btcLR.slice(-n), ethLR.slice(-n), CORR_WINDOW_DAYS);
+      corr = cArr.length ? cArr[cArr.length-1] : NaN;
+    }
+    document.getElementById("corrLine").textContent = `BTC/ETH 180D corr: ${Number.isNaN(corr) ? "NA" : corr.toFixed(2)}`;
+
+    // Stables
+    const [stTot, usdt, usdc] = await Promise.all([
+      llamaStablesTotal().catch(()=>({last:NaN,d7:NaN,d30:NaN})),
+      llamaStable("USDT").catch(()=>({last:NaN,d7:NaN})),
+      llamaStable("USDC").catch(()=>({last:NaN,d7:NaN}))
+    ]);
+    renderStables(stTot, usdt, usdc);
+
+    // Macro (best-effort)
+    const macro = {
+      qqq: await stooqPct1d("qqq.us").catch(()=>NaN),
+      spy: await stooqPct1d("spy.us").catch(()=>NaN),
+      gld: await stooqPct1d("gld.us").catch(()=>NaN),
+    };
+    renderMacro(macro);
+
+    // Flags
+    const leftFlags = [];
+    const rightFlags = [];
+
+    // Funding flags
+    {
+      const [lvl, det] = ragFunding("BTC", btcPerp.fundingAnn);
+      leftFlags.push(flagRow("BTC Funding", lvl, det));
+    }
+    {
+      const [lvl, det] = ragFunding("ETH", ethPerp.fundingAnn);
+      leftFlags.push(flagRow("ETH Funding", lvl, det));
     }
 
-    function closeModal(){
-      $("modal").style.display = "none";
+    // OI flags
+    {
+      const [lvl, det] = ragOI("BTC", btcOiPct);
+      leftFlags.push(flagRow("BTC OI / MktCap", lvl, det));
+    }
+    {
+      const [lvl, det] = ragOI("ETH", ethOiPct);
+      leftFlags.push(flagRow("ETH OI / MktCap", lvl, det));
     }
 
-    function saveModal(){
-      const s = {
-        refreshSec: Number($("setRefreshSec").value) || 60,
-        coingeckoBase: $("setCg").value.trim() || "https://api.coingecko.com/api/v3",
-        riskUrl: $("setRiskUrl").value.trim(),
-        flowsUrl: $("setFlowsUrl").value.trim(),
-        btcDom: $("setBtcDom").value.trim(),
-        regime: $("setRegime").value.trim(),
-      };
-      saveSettings(s);
-      localStorage.setItem("dashboard.flows.manualCsv", $("setManualFlows").value || "");
-      closeModal();
-      startAuto();
-      refresh();
+    // Basis flags
+    {
+      const [lvl, det] = ragBasis("BTC", btcBasisAnn);
+      leftFlags.push(flagRow("BTC Basis", lvl, det));
+    }
+    {
+      const [lvl, det] = ragBasis("ETH", ethBasisAnn);
+      leftFlags.push(flagRow("ETH Basis", lvl, det));
     }
 
-    $("refreshBtn").addEventListener("click", refresh);
-    $("settingsBtn").addEventListener("click", openModal);
-    $("closeSettings").addEventListener("click", closeModal);
-    $("saveSettings").addEventListener("click", saveModal);
-    $("modal").addEventListener("click", (e)=>{ if(e.target === $("modal")) closeModal(); });
+    // RV vs IV
+    {
+      const [lvl, det] = ragRVIV("BTC RV vs IV", lastBtcRV, btcIV);
+      rightFlags.push(flagRow("BTC RV vs IV", lvl, det));
+    }
+    {
+      const [lvl, det] = ragRVIV("ETH RV vs IV", lastEthRV, ethIV);
+      rightFlags.push(flagRow("ETH RV vs IV", lvl, det));
+    }
 
-    // boot
-    (function init(){
-      renderManualMeta(loadSettings());
-      startAuto();
-      refresh();
-    })();
-  </script>
+    // Stable supply
+    {
+      const [lvl, det] = ragStables(stTot.d30);
+      rightFlags.push(flagRow("Stablecoin Supply (30D)", lvl, det));
+    }
+
+    // Corr
+    {
+      const [lvl, det] = ragCorr(corr);
+      rightFlags.push(flagRow("BTC/ETH Correlation (180D)", lvl, det));
+    }
+
+    renderFlags(leftFlags, rightFlags);
+    setLastUpdate(true);
+
+  }catch(e){
+    console.error(e);
+    setLastUpdate(false);
+    document.getElementById("flagsLeft").innerHTML = flagRow("Dashboard", "RED", `Error refreshing: ${String(e)}`);
+  }
+}
+
+/* -----------------------------
+   UI actions
+------------------------------ */
+document.getElementById("refreshBtn").addEventListener("click", () => refresh());
+
+document.getElementById("thresholdBtn").addEventListener("click", () => {
+  const t = loadThresholds();
+  const input = prompt(
+`Edit thresholds as JSON (numbers). Example:
+{
+  "FUNDING_CROWDED_LONG_ANN": 0.3,
+  "OI_MKTCAP_WARN": 0.02
+}
+`, JSON.stringify(t, null, 2));
+  if(!input) return;
+  try{
+    const parsed = JSON.parse(input);
+    saveThresholds({...t, ...parsed});
+    T = loadThresholds();
+    refresh();
+  }catch(e){
+    alert("Invalid JSON.");
+  }
+});
+
+/* -----------------------------
+   Auto-refresh
+------------------------------ */
+refresh();
+setInterval(refresh, 60_000); // refresh every 60s
+</script>
+
+<!--
+NOTE:
+If ETF flows still “stick”, the usual culprit is Worker caching.
+Make sure your Worker returns Cache-Control that doesn’t pin old HTML at the edge:
+
+Recommended:
+"Cache-Control": "no-store, max-age=0"
+
+or:
+"Cache-Control": "public, max-age=0, s-maxage=60, must-revalidate"
+
+Your browser requests already include cb=timestamp + cache:"no-store".
+-->
 </body>
 </html>
-
