@@ -154,10 +154,12 @@
     <div class="row cols2">
       <div class="card">
         <div class="section-title">Spot Flows & Institutional Demand</div>
-        <div class="note">
-          ETF flows (Farside) are omitted in pure static mode due to frequent browser CORS blocks.
-          If you want it, use the free Cloudflare Worker proxy snippet in the comments at the bottom.
+
+        <div class="small">
+          ETF flows (Farside) are pulled via your Cloudflare Worker proxy to avoid CORS.
+          This implementation also **cache-busts** every request and shows the **as-of date** so staleness is obvious.
         </div>
+
         <div class="divider"></div>
         <div class="small">Spot prices (fallback order): OKX → CoinGecko</div>
         <div class="row cols2" style="margin-top:10px;">
@@ -172,6 +174,22 @@
             <div class="metric-delta" id="spotETHsrc">source: —</div>
           </div>
         </div>
+
+        <div class="divider"></div>
+        <div class="small">ETF flows (Farside via Worker)</div>
+        <div class="row cols2" style="margin-top:10px;">
+          <div class="card" style="background:#0b1220;">
+            <div class="metric-label">BTC ETF Flow (latest)</div>
+            <div class="metric-val" id="btcEtfFlow">$—</div>
+            <div class="metric-delta mono" id="btcEtfFlowMeta">as-of: —</div>
+          </div>
+          <div class="card" style="background:#0b1220;">
+            <div class="metric-label">ETH ETF Flow (latest)</div>
+            <div class="metric-val" id="ethEtfFlow">$—</div>
+            <div class="metric-delta mono" id="ethEtfFlowMeta">as-of: —</div>
+          </div>
+        </div>
+
       </div>
 
       <div class="card">
@@ -224,6 +242,19 @@
 
 <script>
 /* -----------------------------
+   Config
+------------------------------ */
+const WORKER_BASE_URL = "https://daily-dashboard.awilkes.workers.dev/";
+
+// If you ever want to disable ETF pulls quickly:
+const ENABLE_ETF_FLOWS = true;
+
+// These were referenced in your original code but not defined in the snippet.
+// Defining them here prevents runtime ReferenceError.
+const RV_WINDOW_DAYS = 30;
+const CORR_WINDOW_DAYS = 180;
+
+/* -----------------------------
    Thresholds (editable)
 ------------------------------ */
 const defaultThresholds = {
@@ -250,7 +281,6 @@ function loadThresholds(){
   }
 }
 function saveThresholds(t){ localStorage.setItem("thresholds", JSON.stringify(t)); }
-
 let T = loadThresholds();
 
 /* -----------------------------
@@ -263,10 +293,6 @@ function fmtUSD(x, decimals=0){
 function fmtPct(x, decimals=2){
   if(x === null || x === undefined || Number.isNaN(x)) return "NA";
   return (100*Number(x)).toFixed(decimals) + "%";
-}
-function fmtNum(x, decimals=2){
-  if(x === null || x === undefined || Number.isNaN(x)) return "NA";
-  return Number(x).toFixed(decimals);
 }
 function nowStr(){
   const d = new Date();
@@ -303,6 +329,9 @@ function flagRow(name, level, detail){
   `;
 }
 
+/* -----------------------------
+   R/A/G helpers
+------------------------------ */
 function ragFunding(asset, fAnn){
   if(Number.isNaN(fAnn)) return ["AMBER", "Funding unavailable"];
   if(fAnn >= T.FUNDING_CROWDED_LONG_ANN) return ["RED", `Crowded long: ${fmtPct(fAnn,1)} ann`];
@@ -340,15 +369,28 @@ function ragCorr(corr){
 }
 
 /* -----------------------------
-   Fetch helpers
+   Fetch helpers (cache-busting)
+   This is the #1 fix for “value never changes”.
 ------------------------------ */
 async function fetchJSON(url){
-  const res = await fetch(url, { method:"GET" });
+  const sep = url.includes("?") ? "&" : "?";
+  const bust = `cb=${Date.now()}`;
+  const res = await fetch(url + sep + bust, {
+    method:"GET",
+    cache:"no-store",
+    headers:{ "Cache-Control":"no-cache" }
+  });
   if(!res.ok) throw new Error(`HTTP ${res.status}`);
   return await res.json();
 }
 async function fetchText(url){
-  const res = await fetch(url, { method:"GET" });
+  const sep = url.includes("?") ? "&" : "?";
+  const bust = `cb=${Date.now()}`;
+  const res = await fetch(url + sep + bust, {
+    method:"GET",
+    cache:"no-store",
+    headers:{ "Cache-Control":"no-cache" }
+  });
   if(!res.ok) throw new Error(`HTTP ${res.status}`);
   return await res.text();
 }
@@ -372,7 +414,6 @@ async function getCoinGeckoDaily(coinId, days){
   const url = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=${days}&interval=daily`;
   const js = await fetchJSON(url);
   const raw = js.prices || [];
-  // Dedup by date
   const map = new Map();
   for(const [ts, price] of raw){
     const d = new Date(ts);
@@ -447,7 +488,6 @@ async function okxPerp(instIdSwap){
   const funding8h = frRow ? Number(frRow.fundingRate) : NaN;
   const fundingAnn = Number.isNaN(funding8h) ? NaN : funding8h*3*365;
 
-  // OKX OI fields vary; keep best-effort:
   const oiUsd = oiRow && oiRow.oiUsd !== undefined ? Number(oiRow.oiUsd) : NaN;
   const oiCcy = oiRow && oiRow.oiCcy !== undefined ? Number(oiRow.oiCcy) : (oiRow && oiRow.oi !== undefined ? Number(oiRow.oi) : NaN);
   const mark = mpRow ? Number(mpRow.markPx) : NaN;
@@ -471,7 +511,6 @@ async function llamaStablesTotal(){
   const js = await fetchJSON(url);
   const hist = js?.totalCirculating || [];
   if(!hist.length) return { last:NaN, d7:NaN, d30:NaN };
-  // hist: [{date: unix, totalCirculating: number}, ...]
   const sorted = [...hist].sort((a,b)=>a.date-b.date);
   const last = Number(sorted[sorted.length-1].totalCirculating);
   const d7 = sorted.length>=8 ? (Number(sorted[sorted.length-1].totalCirculating) - Number(sorted[sorted.length-8].totalCirculating)) : NaN;
@@ -493,11 +532,8 @@ async function llamaStable(symbol){
 
 /* -----------------------------
    Macro (best-effort via Stooq CSV)
-   - Stooq often allows CORS. If it fails, you can remove macro.
 ------------------------------ */
 async function stooqPct1d(symbol){
-  // Example: ^ndq for Nasdaq, ^spx for S&P, xauusd for gold, dx-y? (not present)
-  // We'll use: qqq.us, spy.us, gld.us as proxies, and "dx-y.nyb" isn't on stooq.
   const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(symbol)}&i=d`;
   const csv = await fetchText(url);
   const lines = csv.trim().split("\n");
@@ -508,6 +544,84 @@ async function stooqPct1d(symbol){
   const cPrev = Number(prev[4]);
   if(!(cLast>0 && cPrev>0)) return NaN;
   return cLast/cPrev - 1;
+}
+
+/* -----------------------------
+   ETF flows (Farside via Worker)
+   - cache-bust on every request
+   - choose the *latest dated* row (not total)
+   - show as-of date so staleness is obvious
+------------------------------ */
+function normalizeDateToISO(s){
+  const str = String(s ?? "").replace(/\s+/g, " ").trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+  const t = Date.parse(str);
+  if(!Number.isNaN(t)){
+    const d = new Date(t);
+    return d.toISOString().slice(0,10);
+  }
+  return null;
+}
+
+function parseFarsideNumber(s){
+  if(!s) return NaN;
+  let x = String(s).trim();
+
+  // (123) -> -123
+  const m = /^\((.*)\)$/.exec(x);
+  if(m) x = "-" + m[1];
+
+  x = x.replace(/[$£€,]/g, "").replace(/\s+/g, "");
+  const mult =
+    /bn$/i.test(x) ? 1e9 :
+    /b$/i.test(x) ? 1e9 :
+    /m$/i.test(x) ? 1e6 :
+    /k$/i.test(x) ? 1e3 : 1;
+
+  x = x.replace(/(bn|b|m|k)$/i, "");
+  const n = Number(x);
+  return Number.isFinite(n) ? n * mult : NaN;
+}
+
+function parseFarsideLatestFlow(htmlText){
+  const doc = new DOMParser().parseFromString(htmlText, "text/html");
+  const tables = Array.from(doc.querySelectorAll("table"));
+  if(!tables.length) throw new Error("Farside parse: table not found");
+
+  // Heuristic: pick the table with the most rows
+  let table = tables[0];
+  for(const t of tables){
+    if(t.querySelectorAll("tr").length > table.querySelectorAll("tr").length) table = t;
+  }
+
+  const rows = Array.from(table.querySelectorAll("tr"));
+  const candidates = [];
+
+  for(const tr of rows){
+    const cells = Array.from(tr.querySelectorAll("td")).map(td => td.textContent.trim());
+    if(cells.length < 2) continue;
+
+    const rawDate = cells[0];
+    const iso = normalizeDateToISO(rawDate);
+    if(!iso) continue;
+
+    const rawFlow = cells[cells.length - 1]; // usually last col is net flow
+    const flow = parseFarsideNumber(rawFlow);
+    candidates.push({ isoDate: iso, flow });
+  }
+
+  if(!candidates.length) throw new Error("Farside parse: no dated rows found");
+
+  candidates.sort((a,b) => a.isoDate.localeCompare(b.isoDate));
+  return candidates[candidates.length - 1];
+}
+
+async function getFarsideLatestFlowViaWorker(farsideUrl){
+  const worker = WORKER_BASE_URL.replace(/\/+$/,"/"); // ensure trailing slash
+  const target = worker + "?url=" + encodeURIComponent(farsideUrl);
+  const html = await fetchText(target);
+  return parseFarsideLatestFlow(html);
 }
 
 /* -----------------------------
@@ -594,7 +708,6 @@ function renderFlags(leftFlags, rightFlags){
    Main refresh
 ------------------------------ */
 async function refresh(){
-  let partial = false;
   try{
     const snap = await getCoinGeckoSnapshot();
     renderSnapshot(snap);
@@ -613,6 +726,36 @@ async function refresh(){
     document.getElementById("spotETH").textContent = fmtUSD(ethSpot,0);
     document.getElementById("spotETHsrc").textContent = `source: ${ethSpotSrc}`;
 
+    // ETF flows (Farside via Worker)
+    if(ENABLE_ETF_FLOWS){
+      try{
+        const [btcFlow, ethFlow] = await Promise.all([
+          getFarsideLatestFlowViaWorker("https://farside.co.uk/bitcoin-etf-flow-all-data/"),
+          getFarsideLatestFlowViaWorker("https://farside.co.uk/ethereum-etf-flow-all-data/")
+        ]);
+
+        // Render BTC
+        document.getElementById("btcEtfFlow").textContent = fmtUSD(btcFlow.flow,0);
+        document.getElementById("btcEtfFlowMeta").textContent = `as-of: ${btcFlow.isoDate}`;
+
+        // Render ETH
+        document.getElementById("ethEtfFlow").textContent = fmtUSD(ethFlow.flow,0);
+        document.getElementById("ethEtfFlowMeta").textContent = `as-of: ${ethFlow.isoDate}`;
+
+      }catch(e){
+        console.warn("ETF flow fetch failed:", e);
+        document.getElementById("btcEtfFlow").textContent = "NA";
+        document.getElementById("btcEtfFlowMeta").textContent = "as-of: NA";
+        document.getElementById("ethEtfFlow").textContent = "NA";
+        document.getElementById("ethEtfFlowMeta").textContent = "as-of: NA";
+      }
+    }else{
+      document.getElementById("btcEtfFlow").textContent = "NA";
+      document.getElementById("btcEtfFlowMeta").textContent = "disabled";
+      document.getElementById("ethEtfFlow").textContent = "NA";
+      document.getElementById("ethEtfFlowMeta").textContent = "disabled";
+    }
+
     // Perps (OKX)
     const [btcPerp, ethPerp] = await Promise.all([
       okxPerp("BTC-USDT-SWAP").catch(()=>({fundingAnn:NaN, oiUsd:NaN, oiCcy:NaN, mark:NaN})),
@@ -623,14 +766,14 @@ async function refresh(){
     const btcMcap = Number(snap.btc.usd_market_cap);
     const ethMcap = Number(snap.eth.usd_market_cap);
 
-    function oiNotional(perp, spot){
-      // Prefer oiUsd if provided; else oiCcy*mark (proxy)
+    function oiNotional(perp){
       if(!Number.isNaN(perp.oiUsd)) return perp.oiUsd;
       if(!Number.isNaN(perp.oiCcy) && !Number.isNaN(perp.mark)) return perp.oiCcy * perp.mark;
       return NaN;
     }
-    const btcOiNotional = oiNotional(btcPerp, btcSpot);
-    const ethOiNotional = oiNotional(ethPerp, ethSpot);
+
+    const btcOiNotional = oiNotional(btcPerp);
+    const ethOiNotional = oiNotional(ethPerp);
     const btcOiPct = (btcOiNotional>0 && btcMcap>0) ? btcOiNotional/btcMcap : NaN;
     const ethOiPct = (ethOiNotional>0 && ethMcap>0) ? ethOiNotional/ethMcap : NaN;
 
@@ -785,35 +928,17 @@ setInterval(refresh, 60_000); // refresh every 60s
 </script>
 
 <!--
-=========================================
-OPTIONAL: Add ETF flows (Farside) via FREE Cloudflare Worker proxy
+NOTE:
+If ETF flows still “stick”, the usual culprit is Worker caching.
+Make sure your Worker returns Cache-Control that doesn’t pin old HTML at the edge:
 
-Why: Farside is HTML + often blocked by browser CORS. A worker fetches it server-side and returns JSON.
-Cloudflare Workers has a free tier.
+Recommended:
+"Cache-Control": "no-store, max-age=0"
 
-Worker code (index.js):
-export default {
-  async fetch(request) {
-    const url = new URL(request.url);
-    const target = url.searchParams.get("url");
-    if (!target) return new Response("Missing url", { status: 400 });
-    const res = await fetch(target, { headers: { "User-Agent": "Mozilla/5.0" }});
-    const text = await res.text();
-    return new Response(text, {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "public, max-age=60"
-      }
-    });
-  }
-}
+or:
+"Cache-Control": "public, max-age=0, s-maxage=60, must-revalidate"
 
-Then from the browser you fetch:
-https://YOUR-WORKER.your-subdomain.workers.dev/?url=https%3A%2F%2Ffarside.co.uk%2Fbitcoin-etf-flow-all-data%2F
-
-Parse table client-side with DOMParser.
-=========================================
+Your browser requests already include cb=timestamp + cache:"no-store".
 -->
 </body>
 </html>
