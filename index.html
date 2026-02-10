@@ -114,6 +114,28 @@
     .mono{ font-family:var(--mono); }
     .small{ font-size:12px; color:var(--muted); }
     .error{ color: var(--red); }
+
+    /* ETF sparkline */
+    .spark-wrap{
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:#0b1220;
+      padding:10px;
+    }
+    .spark-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+      gap:10px;
+      margin-bottom:8px;
+    }
+    .spark-title{ font-size:12px; color:var(--muted); }
+    .spark-meta{ font-size:12px; color:var(--muted); font-family:var(--mono); white-space:nowrap; }
+    canvas.spark{
+      width:100%;
+      height:70px;
+      display:block;
+    }
   </style>
 </head>
 
@@ -157,7 +179,7 @@
 
         <div class="small">
           ETF flows (Farside) are pulled via your Cloudflare Worker proxy to avoid CORS.
-          This implementation also **cache-busts** every request and shows the **as-of date** so staleness is obvious.
+          Requests are cache-busted and include the **as-of date**.
         </div>
 
         <div class="divider"></div>
@@ -176,7 +198,8 @@
         </div>
 
         <div class="divider"></div>
-        <div class="small">ETF flows (Farside via Worker)</div>
+        <div class="small">Spot ETF Flows (Farside via Worker)</div>
+
         <div class="row cols2" style="margin-top:10px;">
           <div class="card" style="background:#0b1220;">
             <div class="metric-label">BTC ETF Flow (latest)</div>
@@ -190,6 +213,27 @@
           </div>
         </div>
 
+        <div class="row cols2" style="margin-top:10px;">
+          <div class="spark-wrap">
+            <div class="spark-head">
+              <div class="spark-title">BTC ETF Flows (last <span id="btcEtfN">60</span>D)</div>
+              <div class="spark-meta" id="btcSparkMeta">—</div>
+            </div>
+            <canvas class="spark" id="btcEtfSpark"></canvas>
+          </div>
+
+          <div class="spark-wrap">
+            <div class="spark-head">
+              <div class="spark-title">ETH ETF Flows (last <span id="ethEtfN">60</span>D)</div>
+              <div class="spark-meta" id="ethSparkMeta">—</div>
+            </div>
+            <canvas class="spark" id="ethEtfSpark"></canvas>
+          </div>
+        </div>
+
+        <div class="note">
+          Sparkline is daily net flows. If a line looks flat, check the as-of date above (it might be a holiday/no prints yet or the upstream table is unchanged).
+        </div>
       </div>
 
       <div class="card">
@@ -222,7 +266,7 @@
 
     <div class="divider"></div>
 
-    <!-- Macro strip (optional, may fail due to Yahoo CORS) -->
+    <!-- Macro strip (optional, may fail due to CORS) -->
     <div class="card">
       <div class="section-title">Macro Cross-Asset Tape (optional)</div>
       <div class="small">
@@ -245,12 +289,12 @@
    Config
 ------------------------------ */
 const WORKER_BASE_URL = "https://daily-dashboard.awilkes.workers.dev/";
-
-// If you ever want to disable ETF pulls quickly:
 const ENABLE_ETF_FLOWS = true;
 
-// These were referenced in your original code but not defined in the snippet.
-// Defining them here prevents runtime ReferenceError.
+// ETF chart length
+const ETF_SERIES_DAYS = 60;
+
+// These were referenced in your original code but not defined in your snippet.
 const RV_WINDOW_DAYS = 30;
 const CORR_WINDOW_DAYS = 180;
 
@@ -370,7 +414,6 @@ function ragCorr(corr){
 
 /* -----------------------------
    Fetch helpers (cache-busting)
-   This is the #1 fix for “value never changes”.
 ------------------------------ */
 async function fetchJSON(url){
   const sep = url.includes("?") ? "&" : "?";
@@ -548,9 +591,8 @@ async function stooqPct1d(symbol){
 
 /* -----------------------------
    ETF flows (Farside via Worker)
-   - cache-bust on every request
-   - choose the *latest dated* row (not total)
-   - show as-of date so staleness is obvious
+   - parse ALL dated rows into a series
+   - take last N days for sparkline
 ------------------------------ */
 function normalizeDateToISO(s){
   const str = String(s ?? "").replace(/\s+/g, " ").trim();
@@ -584,7 +626,7 @@ function parseFarsideNumber(s){
   return Number.isFinite(n) ? n * mult : NaN;
 }
 
-function parseFarsideLatestFlow(htmlText){
+function parseFarsideFlowSeries(htmlText){
   const doc = new DOMParser().parseFromString(htmlText, "text/html");
   const tables = Array.from(doc.querySelectorAll("table"));
   if(!tables.length) throw new Error("Farside parse: table not found");
@@ -596,32 +638,126 @@ function parseFarsideLatestFlow(htmlText){
   }
 
   const rows = Array.from(table.querySelectorAll("tr"));
-  const candidates = [];
+  const map = new Map(); // isoDate -> flow
 
   for(const tr of rows){
     const cells = Array.from(tr.querySelectorAll("td")).map(td => td.textContent.trim());
     if(cells.length < 2) continue;
 
-    const rawDate = cells[0];
-    const iso = normalizeDateToISO(rawDate);
+    const iso = normalizeDateToISO(cells[0]);
     if(!iso) continue;
 
-    const rawFlow = cells[cells.length - 1]; // usually last col is net flow
+    const rawFlow = cells[cells.length - 1]; // usually net flow in last column
     const flow = parseFarsideNumber(rawFlow);
-    candidates.push({ isoDate: iso, flow });
+    map.set(iso, flow);
   }
 
-  if(!candidates.length) throw new Error("Farside parse: no dated rows found");
-
-  candidates.sort((a,b) => a.isoDate.localeCompare(b.isoDate));
-  return candidates[candidates.length - 1];
+  const dates = Array.from(map.keys()).sort(); // ISO sorts correctly
+  const flows = dates.map(d => map.get(d));
+  if(!dates.length) throw new Error("Farside parse: no dated rows found");
+  return { dates, flows };
 }
 
-async function getFarsideLatestFlowViaWorker(farsideUrl){
-  const worker = WORKER_BASE_URL.replace(/\/+$/,"/"); // ensure trailing slash
+async function getFarsideSeriesViaWorker(farsideUrl){
+  const worker = WORKER_BASE_URL.replace(/\/+$/,"/");
   const target = worker + "?url=" + encodeURIComponent(farsideUrl);
   const html = await fetchText(target);
-  return parseFarsideLatestFlow(html);
+  return parseFarsideFlowSeries(html);
+}
+
+/* -----------------------------
+   Sparkline (canvas)
+------------------------------ */
+function drawSparkline(canvas, series, opts = {}){
+  if(!canvas) return;
+  const values = (series || []).filter(v => Number.isFinite(v));
+  const wCss = canvas.clientWidth || 300;
+  const hCss = canvas.clientHeight || 70;
+
+  // HiDPI
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(wCss * dpr);
+  canvas.height = Math.round(hCss * dpr);
+
+  const ctx = canvas.getContext("2d");
+  if(!ctx) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  // background (transparent; relies on parent)
+  ctx.clearRect(0, 0, wCss, hCss);
+
+  if(!series || series.length < 2 || values.length < 2){
+    // draw "NA" text
+    ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+    ctx.fillStyle = "#9bb0c7";
+    ctx.fillText("NA", 8, 18);
+    return;
+  }
+
+  // Scale using full series (including non-finite as gaps)
+  const finite = series.map(v => Number.isFinite(v) ? v : null);
+  const finiteVals = finite.filter(v => v !== null);
+  let minV = Math.min(...finiteVals);
+  let maxV = Math.max(...finiteVals);
+  if(minV === maxV){
+    // add padding when flat
+    const pad = Math.max(1, Math.abs(minV) * 0.05);
+    minV -= pad; maxV += pad;
+  }
+
+  const padX = 6, padY = 8;
+  const innerW = wCss - padX*2;
+  const innerH = hCss - padY*2;
+
+  function xAt(i){
+    return padX + innerW * (i/(finite.length-1));
+  }
+  function yAt(v){
+    const t = (v - minV) / (maxV - minV);
+    return padY + innerH * (1 - t);
+  }
+
+  // zero line
+  if(minV < 0 && maxV > 0){
+    const y0 = yAt(0);
+    ctx.beginPath();
+    ctx.moveTo(padX, y0);
+    ctx.lineTo(padX + innerW, y0);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(155,176,199,0.25)";
+    ctx.stroke();
+  }
+
+  // line
+  ctx.beginPath();
+  let started = false;
+  for(let i=0;i<finite.length;i++){
+    const v = finite[i];
+    if(v === null) { started = false; continue; }
+    const x = xAt(i);
+    const y = yAt(v);
+    if(!started){
+      ctx.moveTo(x,y);
+      started = true;
+    }else{
+      ctx.lineTo(x,y);
+    }
+  }
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(231,238,249,0.85)";
+  ctx.stroke();
+
+  // last point dot
+  for(let i=finite.length-1;i>=0;i--){
+    const v = finite[i];
+    if(v === null) continue;
+    const x = xAt(i), y = yAt(v);
+    ctx.beginPath();
+    ctx.arc(x, y, 2.5, 0, Math.PI*2);
+    ctx.fillStyle = "rgba(45,212,191,0.9)";
+    ctx.fill();
+    break;
+  }
 }
 
 /* -----------------------------
@@ -726,21 +862,44 @@ async function refresh(){
     document.getElementById("spotETH").textContent = fmtUSD(ethSpot,0);
     document.getElementById("spotETHsrc").textContent = `source: ${ethSpotSrc}`;
 
-    // ETF flows (Farside via Worker)
+    // ETF flows + charts
     if(ENABLE_ETF_FLOWS){
+      document.getElementById("btcEtfN").textContent = String(ETF_SERIES_DAYS);
+      document.getElementById("ethEtfN").textContent = String(ETF_SERIES_DAYS);
+
       try{
-        const [btcFlow, ethFlow] = await Promise.all([
-          getFarsideLatestFlowViaWorker("https://farside.co.uk/bitcoin-etf-flow-all-data/"),
-          getFarsideLatestFlowViaWorker("https://farside.co.uk/ethereum-etf-flow-all-data/")
+        const [btcSeries, ethSeries] = await Promise.all([
+          getFarsideSeriesViaWorker("https://farside.co.uk/bitcoin-etf-flow-all-data/"),
+          getFarsideSeriesViaWorker("https://farside.co.uk/ethereum-etf-flow-all-data/")
         ]);
 
-        // Render BTC
-        document.getElementById("btcEtfFlow").textContent = fmtUSD(btcFlow.flow,0);
-        document.getElementById("btcEtfFlowMeta").textContent = `as-of: ${btcFlow.isoDate}`;
+        function sliceLastN(series, n){
+          const len = series.dates.length;
+          const start = Math.max(0, len - n);
+          return {
+            dates: series.dates.slice(start),
+            flows: series.flows.slice(start),
+            lastDate: series.dates[len-1],
+            lastFlow: series.flows[len-1],
+          };
+        }
 
-        // Render ETH
-        document.getElementById("ethEtfFlow").textContent = fmtUSD(ethFlow.flow,0);
-        document.getElementById("ethEtfFlowMeta").textContent = `as-of: ${ethFlow.isoDate}`;
+        const btc = sliceLastN(btcSeries, ETF_SERIES_DAYS);
+        const eth = sliceLastN(ethSeries, ETF_SERIES_DAYS);
+
+        // Latest values
+        document.getElementById("btcEtfFlow").textContent = fmtUSD(btc.lastFlow,0);
+        document.getElementById("btcEtfFlowMeta").textContent = `as-of: ${btc.lastDate}`;
+        document.getElementById("ethEtfFlow").textContent = fmtUSD(eth.lastFlow,0);
+        document.getElementById("ethEtfFlowMeta").textContent = `as-of: ${eth.lastDate}`;
+
+        // Meta in chart header
+        document.getElementById("btcSparkMeta").textContent = `${btc.dates[0]} → ${btc.dates[btc.dates.length-1]}`;
+        document.getElementById("ethSparkMeta").textContent = `${eth.dates[0]} → ${eth.dates[eth.dates.length-1]}`;
+
+        // Draw sparklines
+        drawSparkline(document.getElementById("btcEtfSpark"), btc.flows);
+        drawSparkline(document.getElementById("ethEtfSpark"), eth.flows);
 
       }catch(e){
         console.warn("ETF flow fetch failed:", e);
@@ -748,12 +907,20 @@ async function refresh(){
         document.getElementById("btcEtfFlowMeta").textContent = "as-of: NA";
         document.getElementById("ethEtfFlow").textContent = "NA";
         document.getElementById("ethEtfFlowMeta").textContent = "as-of: NA";
+        document.getElementById("btcSparkMeta").textContent = "NA";
+        document.getElementById("ethSparkMeta").textContent = "NA";
+        drawSparkline(document.getElementById("btcEtfSpark"), []);
+        drawSparkline(document.getElementById("ethEtfSpark"), []);
       }
     }else{
       document.getElementById("btcEtfFlow").textContent = "NA";
       document.getElementById("btcEtfFlowMeta").textContent = "disabled";
       document.getElementById("ethEtfFlow").textContent = "NA";
       document.getElementById("ethEtfFlowMeta").textContent = "disabled";
+      document.getElementById("btcSparkMeta").textContent = "disabled";
+      document.getElementById("ethSparkMeta").textContent = "disabled";
+      drawSparkline(document.getElementById("btcEtfSpark"), []);
+      drawSparkline(document.getElementById("ethEtfSpark"), []);
     }
 
     // Perps (OKX)
@@ -900,6 +1067,12 @@ async function refresh(){
 ------------------------------ */
 document.getElementById("refreshBtn").addEventListener("click", () => refresh());
 
+// Redraw sparklines on resize (canvas needs re-render for crispness)
+window.addEventListener("resize", () => {
+  // We'll just refresh; it’s simple and keeps series in sync.
+  refresh();
+});
+
 document.getElementById("thresholdBtn").addEventListener("click", () => {
   const t = loadThresholds();
   const input = prompt(
@@ -928,17 +1101,12 @@ setInterval(refresh, 60_000); // refresh every 60s
 </script>
 
 <!--
-NOTE:
 If ETF flows still “stick”, the usual culprit is Worker caching.
-Make sure your Worker returns Cache-Control that doesn’t pin old HTML at the edge:
-
-Recommended:
+Recommended Worker response header:
 "Cache-Control": "no-store, max-age=0"
+(or "public, max-age=0, s-maxage=60, must-revalidate")
 
-or:
-"Cache-Control": "public, max-age=0, s-maxage=60, must-revalidate"
-
-Your browser requests already include cb=timestamp + cache:"no-store".
+Client already cache-busts with cb=timestamp + cache:"no-store".
 -->
 </body>
 </html>
